@@ -96,8 +96,6 @@ jobs:
           npx cap sync android
       - name: Build APK (Android SDK is preinstalled on GitHub's Ubuntu runners)
         working-directory: android
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x gradlew
