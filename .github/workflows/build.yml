@@ -88,16 +88,18 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
       - run: npm ci
       - name: Create Android project
         run: |
           npx cap add android
           node scripts/prepare-android.js
           npx cap sync android
-      - name: Build APK
+      - name: Build APK (Android SDK is preinstalled on GitHub's Ubuntu runners)
         working-directory: android
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
         run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk Draw-Alive.apk
