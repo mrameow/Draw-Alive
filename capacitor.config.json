@@ -1,0 +1,8 @@
+{
+  "appId": "com.drawalive.app",
+  "appName": "Draw Alive",
+  "webDir": "web",
+  "android": {
+    "backgroundColor": "#f3f1ff"
+  }
+}

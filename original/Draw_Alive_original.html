@@ -1,0 +1,2225 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Draw Alive</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f8fafc;
+    }
+    
+    html {
+      height: 100%;
+    }
+    
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 20px;
+      gap: 16px;
+    }
+    
+    .header {
+      text-align: center;
+    }
+    
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+      color: #1e293b;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      margin: 0;
+      color: #64748b;
+    }
+    
+    .forest-section {
+      flex: 1;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      position: relative;
+      min-height: 250px;
+    }
+    
+    .drawing-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      display: none;
+      backdrop-filter: blur(4px);
+    }
+    
+    .drawing-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 700px;
+      height: 80%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .drawing-header {
+      background: #f8fafc;
+      padding: 16px 20px;
+      border-bottom: 2px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    
+    .drawing-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    
+    .close-button {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: #ef4444;
+      color: white;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    
+    .close-button:hover {
+      background: #dc2626;
+      transform: scale(1.1);
+    }
+    
+    .canvas-area {
+      flex: 1;
+      background: white;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .drawing-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+    
+    .tools-panel {
+      background: #f8fafc;
+      border-top: 2px solid #e2e8f0;
+      padding: 20px;
+      flex-shrink: 0;
+    }
+    
+    .tools-grid {
+      display: grid;
+      grid-template-columns: auto auto auto;
+      gap: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .tool-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .tool-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    
+    .color-option {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+    
+    .color-option.selected {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    
+    .color-wheel-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid #e2e8f0;
+      background: linear-gradient(45deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      padding: 0;
+    }
+    
+    .color-wheel-btn:hover {
+      transform: scale(1.1);
+      border-color: #3b82f6;
+    }
+    
+    .color-wheel-btn.selected {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    
+    .color-wheel-icon {
+      font-size: 14px;
+      line-height: 1;
+      margin-bottom: 1px;
+    }
+    
+    .color-wheel-text {
+      font-size: 8px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+      line-height: 1;
+    }
+    
+    .color-box-container {
+      position: relative;
+      width: 200px;
+      height: 120px;
+      margin: 0 auto;
+    }
+    
+    .color-box {
+      width: 200px;
+      height: 120px;
+      border-radius: 8px;
+      cursor: crosshair;
+      position: relative;
+      border: 2px solid #e2e8f0;
+    }
+    
+    .color-box-picker {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border: 2px solid white;
+      border-radius: 50%;
+      pointer-events: none;
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+      transform: translate(-50%, -50%);
+    }
+    
+    .color-display {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 3px solid #e2e8f0;
+      margin: 8px auto 0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .size-options {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .size-option {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #e2e8f0;
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    
+    .size-option:hover {
+      border-color: #3b82f6;
+    }
+    
+    .size-option.selected {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+    
+    .size-dot {
+      background: #64748b;
+      border-radius: 50%;
+    }
+    
+    .action-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .action-btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      min-width: 160px;
+    }
+    
+    .action-btn:hover {
+      transform: translateY(-1px);
+    }
+    
+    .animate-btn {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .animate-btn:hover {
+      background: #2563eb;
+    }
+    
+    .clear-btn {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .clear-btn:hover {
+      background: #dc2626;
+    }
+    
+    #forestCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .toolbar {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 16px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    
+    .status-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .status-message.show {
+      opacity: 1;
+    }
+    
+    .theme-selector {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .theme-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .theme-options {
+      display: flex;
+      gap: 16px;
+    }
+    
+    .theme-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      min-width: 80px;
+    }
+    
+    .theme-btn:hover {
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    }
+    
+    .theme-btn.active {
+      border-color: #3b82f6;
+      background: #eff6ff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+    }
+    
+    .theme-icon {
+      font-size: 24px;
+    }
+    
+    .theme-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+    }
+    
+    .theme-btn.active .theme-name {
+      color: #3b82f6;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+ </head>
+ <body>
+  <div class="app-container">
+   <div class="header">
+    <h1 class="title">Ocean Draw Alive</h1>
+    <p class="subtitle">Draw sea creatures and watch them swim in the ocean!</p>
+   </div>
+   <div class="forest-section">
+    <canvas id="forestCanvas"></canvas>
+    <div id="statusMessage" class="status-message"></div>
+   </div>
+   <div class="toolbar"><button class="btn btn-primary" id="openDrawingBtn">🎨 Open Drawing Panel</button> <input type="file" id="imageUpload" accept="image/*" style="display: none;"> <button class="btn btn-primary" id="uploadBtn" style="background: #10b981;">📷 Upload Image</button> <button class="btn btn-primary" id="themeBtn" style="background: #8b5cf6;">🌍 Choose Theme</button>
+   </div>
+  </div><!-- Theme Popup -->
+  <div class="drawing-popup" id="themePopup">
+   <div class="drawing-container" style="width: 400px; height: auto; max-height: 300px;">
+    <div class="drawing-header">
+     <h3 class="drawing-title">🌍 Choose Theme</h3><button class="close-button" id="closeThemeBtn">✕</button>
+    </div>
+    <div style="padding: 30px;">
+     <div class="theme-options" style="display: flex; gap: 20px; justify-content: center;"><button class="theme-btn active" data-theme="ocean">
+       <div class="theme-icon">
+        🌊
+       </div>
+       <div class="theme-name">
+        Ocean
+       </div></button> <button class="theme-btn" data-theme="forest">
+       <div class="theme-icon">
+        🌲
+       </div>
+       <div class="theme-name">
+        Forest
+       </div></button> <button class="theme-btn" data-theme="space">
+       <div class="theme-icon">
+        🚀
+       </div>
+       <div class="theme-name">
+        Space
+       </div></button>
+     </div>
+    </div>
+   </div>
+  </div><!-- Color Wheel Popup -->
+  <div class="drawing-popup" id="colorWheelPopup" style="z-index: 1100;">
+   <div class="drawing-container" style="width: 300px; height: auto; max-height: 400px;">
+    <div class="drawing-header">
+     <h3 class="drawing-title">🎨 Color Wheel</h3><button class="close-button" id="closeColorWheelBtn">✕</button>
+    </div>
+    <div style="padding: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+     <div class="color-box-container">
+      <canvas class="color-box" id="colorBox" width="200" height="120"></canvas>
+      <div class="color-box-picker" id="colorBoxPicker"></div>
+     </div><!-- Brightness Control -->
+     <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;"><label style="font-size: 12px; font-weight: 600; color: #64748b;">Brightness</label>
+      <div style="display: flex; align-items: center; gap: 12px; width: 100%;"><span style="font-size: 10px; color: #64748b;">Dark</span> <input type="range" id="brightnessSlider" min="0" max="100" value="50" style="flex: 1; height: 6px; border-radius: 3px; background: linear-gradient(to right, #000, #fff); outline: none; cursor: pointer;"> <span style="font-size: 10px; color: #64748b;">Light</span>
+      </div>
+     </div>
+     <div class="color-display" id="colorDisplay" style="background: #000000;"></div><button class="action-btn animate-btn" id="selectColorBtn" style="min-width: 120px;">Select Color</button>
+    </div>
+   </div>
+  </div><!-- Drawing Popup -->
+  <div class="drawing-popup" id="drawingPopup">
+   <div class="drawing-container">
+    <div class="drawing-header">
+     <h3 class="drawing-title">🎨 Drawing Panel</h3><button class="close-button" id="closeDrawingBtn">✕</button>
+    </div>
+    <div class="canvas-area">
+     <canvas class="drawing-canvas" id="drawingCanvas"></canvas>
+    </div>
+    <div class="tools-panel">
+     <div class="tools-grid"><!-- Colors -->
+      <div class="tool-group">
+       <div class="tool-label">
+        Colors
+       </div>
+       <div class="color-grid">
+        <div class="color-option selected" data-color="#000000" style="background: #000000;"></div>
+        <div class="color-option" data-color="#ef4444" style="background: #ef4444;"></div>
+        <div class="color-option" data-color="#22c55e" style="background: #22c55e;"></div>
+        <div class="color-option" data-color="#3b82f6" style="background: #3b82f6;"></div>
+        <div class="color-option" data-color="#f59e0b" style="background: #f59e0b;"></div><button class="color-wheel-btn" id="openColorWheelBtn">
+         <div class="color-wheel-icon">
+          🎨
+         </div>
+         <div class="color-wheel-text">
+          Wheel
+         </div></button>
+       </div>
+      </div><!-- Brush Sizes -->
+      <div class="tool-group">
+       <div class="tool-label">
+        Brush Size
+       </div>
+       <div class="size-options">
+        <div class="size-option" data-size="2">
+         <div class="size-dot" style="width: 6px; height: 6px;"></div>
+        </div>
+        <div class="size-option selected" data-size="5">
+         <div class="size-dot" style="width: 10px; height: 10px;"></div>
+        </div>
+        <div class="size-option" data-size="10">
+         <div class="size-dot" style="width: 16px; height: 16px;"></div>
+        </div>
+       </div>
+      </div><!-- Actions -->
+      <div class="tool-group">
+       <div class="tool-label">
+        Actions
+       </div>
+       <div class="action-group"><button class="action-btn animate-btn" id="animateDrawingBtn">✨ Animate Drawing</button> <button class="action-btn clear-btn" id="clearDrawingBtn">🗑️ Clear Canvas</button>
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      background_color: "#f8fafc",
+      canvas_background: "#ffffff",
+      primary_button_color: "#3b82f6",
+      secondary_button_color: "#ef4444",
+      text_color: "#1e293b",
+      app_title: "Draw Alive",
+      draw_instruction: "Draw creatures and watch them come alive!",
+      animate_button_text: "✨ Animate Drawing",
+      clear_button_text: "🗑️ Clear Canvas"
+    };
+
+    // Drawing state
+    let forestCanvas, forestCtx, drawingCanvas, drawingCtx, colorBoxCanvas, colorBoxCtx;
+    let isDrawing = false;
+    let currentColor = '#000000';
+    let currentSize = 5;
+    let strokes = [];
+    let currentStroke = [];
+    let isAnimating = false;
+    let animatedCharacters = [];
+    let currentTheme = 'ocean';
+
+    function initCanvas() {
+      forestCanvas = document.getElementById('forestCanvas');
+      forestCtx = forestCanvas.getContext('2d');
+      drawingCanvas = document.getElementById('drawingCanvas');
+      drawingCtx = drawingCanvas.getContext('2d');
+      colorBoxCanvas = document.getElementById('colorBox');
+      colorBoxCtx = colorBoxCanvas.getContext('2d');
+      
+      function resizeCanvases() {
+        // Resize forest canvas
+        const forestWrapper = forestCanvas.parentElement;
+        forestCanvas.width = forestWrapper.clientWidth;
+        forestCanvas.height = forestWrapper.clientHeight;
+        
+        // Resize drawing canvas
+        const drawingWrapper = drawingCanvas.parentElement;
+        drawingCanvas.width = drawingWrapper.clientWidth;
+        drawingCanvas.height = drawingWrapper.clientHeight;
+        
+        redrawDrawingCanvas();
+        drawBackground();
+      }
+      
+      window.addEventListener('resize', resizeCanvases);
+      resizeCanvases();
+      
+      // Drawing events
+      drawingCanvas.addEventListener('mousedown', startDrawing);
+      drawingCanvas.addEventListener('mousemove', draw);
+      drawingCanvas.addEventListener('mouseup', stopDrawing);
+      drawingCanvas.addEventListener('mouseleave', stopDrawing);
+      
+      // Touch events
+      drawingCanvas.addEventListener('touchstart', handleTouch);
+      drawingCanvas.addEventListener('touchmove', handleTouch);
+      drawingCanvas.addEventListener('touchend', stopDrawing);
+      
+      // Forest canvas click for character deletion
+      forestCanvas.addEventListener('click', handleForestClick);
+      
+      // Color box events
+      colorBoxCanvas.addEventListener('click', handleColorBoxClick);
+      colorBoxCanvas.addEventListener('mousemove', handleColorBoxMove);
+      
+      // Initialize color box
+      drawColorBox();
+      updateColorBoxPicker(100, 60); // Center position initially
+    }
+    
+    function drawColorBox() {
+      const width = colorBoxCanvas.width;
+      const height = colorBoxCanvas.height;
+      
+      // Create horizontal hue gradient, vertical saturation gradient, and brightness overlay
+      for (let x = 0; x < width; x++) {
+        for (let y = 0; y < height; y++) {
+          const hue = (x / width) * 360;
+          const saturation = 100 - (y / height) * 100;
+          
+          // Use current brightness from slider for the color box
+          colorBoxCtx.fillStyle = `hsl(${hue}, ${saturation}%, ${currentBrightness}%)`;
+          colorBoxCtx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    
+    function handleColorBoxClick(e) {
+      const rect = colorBoxCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      if (x >= 0 && x < colorBoxCanvas.width && y >= 0 && y < colorBoxCanvas.height) {
+        currentHue = (x / colorBoxCanvas.width) * 360;
+        currentSaturation = 100 - (y / colorBoxCanvas.height) * 100;
+        updateColorBoxPicker(x, y);
+        updateColorFromHSL();
+      }
+    }
+    
+    function handleColorBoxMove(e) {
+      const rect = colorBoxCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      if (x >= 0 && x < colorBoxCanvas.width && y >= 0 && y < colorBoxCanvas.height) {
+        colorBoxCanvas.style.cursor = 'crosshair';
+      } else {
+        colorBoxCanvas.style.cursor = 'default';
+      }
+    }
+    
+    function updateColorFromHSL() {
+      selectedBoxColor = `hsl(${currentHue}, ${currentSaturation}%, ${currentBrightness}%)`;
+      updateColorDisplay(selectedBoxColor);
+      updateSliderBackground();
+    }
+    
+    function updateSliderBackground() {
+      const brightnessSlider = document.getElementById('brightnessSlider');
+      
+      // Update brightness slider background
+      const darkColor = `hsl(${currentHue}, ${currentSaturation}%, 0%)`;
+      const lightColor = `hsl(${currentHue}, ${currentSaturation}%, 100%)`;
+      brightnessSlider.style.background = `linear-gradient(to right, ${darkColor}, ${lightColor})`;
+    }
+    
+    function updateColorBoxPicker(x, y) {
+      const picker = document.getElementById('colorBoxPicker');
+      picker.style.left = x + 'px';
+      picker.style.top = y + 'px';
+    }
+    
+    function updateColorDisplay(color) {
+      const display = document.getElementById('colorDisplay');
+      display.style.background = color;
+    }
+
+    function handleTouch(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      
+      const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 'mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      
+      if (e.type === 'touchstart') {
+        startDrawing(mouseEvent);
+      } else if (e.type === 'touchmove') {
+        draw(mouseEvent);
+      }
+    }
+
+    function getMousePos(e) {
+      const rect = drawingCanvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    function getForestMousePos(e) {
+      const rect = forestCanvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    function handleForestClick(e) {
+      const pos = getForestMousePos(e);
+      
+      for (let i = animatedCharacters.length - 1; i >= 0; i--) {
+        const character = animatedCharacters[i];
+        
+        let minX, maxX, minY, maxY;
+        
+        if (character.type === 'drawing') {
+          minX = Infinity; maxX = -Infinity; minY = Infinity; maxY = -Infinity;
+          character.strokes.forEach(stroke => {
+            stroke.forEach(point => {
+              const transformedX = point.x - character.centerX + character.currentX;
+              const transformedY = point.y - character.centerY + character.currentY;
+              minX = Math.min(minX, transformedX);
+              maxX = Math.max(maxX, transformedX);
+              minY = Math.min(minY, transformedY);
+              maxY = Math.max(maxY, transformedY);
+            });
+          });
+        } else if (character.type === 'image') {
+          minX = character.currentX - character.centerX;
+          maxX = character.currentX - character.centerX + character.width;
+          minY = character.currentY - character.centerY;
+          maxY = character.currentY - character.centerY + character.height;
+        }
+        
+        const padding = 20;
+        if (pos.x >= minX - padding && pos.x <= maxX + padding && 
+            pos.y >= minY - padding && pos.y <= maxY + padding) {
+          animatedCharacters.splice(i, 1);
+          showMessage(`Character deleted!`);
+          
+          if (animatedCharacters.length === 0) {
+            isAnimating = false;
+            drawBackground();
+          }
+          break;
+        }
+      }
+    }
+
+    function startDrawing(e) {
+      isDrawing = true;
+      const pos = getMousePos(e);
+      currentStroke = [{
+        x: pos.x,
+        y: pos.y,
+        color: currentColor,
+        size: currentSize
+      }];
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      
+      const pos = getMousePos(e);
+      currentStroke.push({
+        x: pos.x,
+        y: pos.y,
+        color: currentColor,
+        size: currentSize
+      });
+      
+      if (currentStroke.length >= 2) {
+        const prev = currentStroke[currentStroke.length - 2];
+        const curr = currentStroke[currentStroke.length - 1];
+        
+        drawingCtx.strokeStyle = currentColor;
+        drawingCtx.lineWidth = currentSize;
+        drawingCtx.lineCap = 'round';
+        drawingCtx.lineJoin = 'round';
+        
+        drawingCtx.beginPath();
+        drawingCtx.moveTo(prev.x, prev.y);
+        drawingCtx.lineTo(curr.x, curr.y);
+        drawingCtx.stroke();
+      }
+    }
+
+    function stopDrawing() {
+      if (isDrawing && currentStroke.length > 0) {
+        strokes.push([...currentStroke]);
+      }
+      isDrawing = false;
+      currentStroke = [];
+    }
+
+    function redrawDrawingCanvas() {
+      const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+      drawingCtx.fillStyle = config.canvas_background || defaultConfig.canvas_background;
+      drawingCtx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+      
+      strokes.forEach(stroke => {
+        if (stroke.length < 2) return;
+        
+        drawingCtx.strokeStyle = stroke[0].color;
+        drawingCtx.lineWidth = stroke[0].size;
+        drawingCtx.lineCap = 'round';
+        drawingCtx.lineJoin = 'round';
+        
+        drawingCtx.beginPath();
+        drawingCtx.moveTo(stroke[0].x, stroke[0].y);
+        
+        for (let i = 1; i < stroke.length; i++) {
+          drawingCtx.lineTo(stroke[i].x, stroke[i].y);
+        }
+        
+        drawingCtx.stroke();
+      });
+    }
+
+    function showMessage(text, duration = 2000) {
+      const message = document.getElementById('statusMessage');
+      message.textContent = text;
+      message.classList.add('show');
+      
+      setTimeout(() => {
+        message.classList.remove('show');
+      }, duration);
+    }
+
+    let forestImage = null;
+    let imageLoaded = false;
+
+    function loadForestImage() {
+      forestImage = new Image();
+      forestImage.crossOrigin = 'anonymous';
+      forestImage.onload = function() {
+        imageLoaded = true;
+      };
+      forestImage.onerror = function() {
+        imageLoaded = false;
+      };
+      forestImage.src = 'https://static.vecteezy.com/system/resources/thumbnails/021/182/343/small/forest-nature-scene-for-cartoon-animation-vector.jpg';
+    }
+
+    // Initialize static ocean elements once
+    let seaweedData = [];
+    let bubbleData = [];
+    let coralData = [];
+    let sandData = [];
+    let oceanInitialized = false;
+    
+    // Initialize static forest elements once
+    let treeData = [];
+    let leafData = [];
+    let mushroomData = [];
+    let grassData = [];
+    let forestInitialized = false;
+    
+    // Initialize static space elements once
+    let starData = [];
+    let planetData = [];
+    let asteroidData = [];
+    let nebulaClouds = [];
+    let spaceInitialized = false;
+
+    function initializeOceanElements() {
+      if (oceanInitialized) return;
+      
+      // Initialize seaweed
+      seaweedData = [];
+      const seaweedCount = 12;
+      for (let i = 0; i < seaweedCount; i++) {
+        seaweedData.push({
+          baseX: (forestCanvas.width / seaweedCount) * i + (Math.random() * 40),
+          height: 60 + Math.random() * 80,
+          color: i % 3 === 0 ? '#228B22' : (i % 3 === 1 ? '#32CD32' : '#006400'),
+          thickness: 4 + Math.random() * 3,
+          swayPhase: Math.random() * Math.PI * 2,
+          swaySpeed: 0.8 + Math.random() * 0.6
+        });
+      }
+      
+      // Initialize bubbles
+      bubbleData = [];
+      const bubbleCount = 15;
+      for (let i = 0; i < bubbleCount; i++) {
+        bubbleData.push({
+          baseX: Math.random() * forestCanvas.width,
+          baseY: Math.random() * forestCanvas.height * 0.8,
+          size: 3 + Math.random() * 8,
+          floatPhase: Math.random() * Math.PI * 2,
+          floatSpeed: 0.6 + Math.random() * 0.8,
+          driftSpeed: 0.3 + Math.random() * 0.4
+        });
+      }
+      
+      // Initialize coral
+      coralData = [];
+      const coralCount = 6;
+      const coralColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+      for (let i = 0; i < coralCount; i++) {
+        coralData.push({
+          x: (forestCanvas.width / coralCount) * i + (Math.random() * 60),
+          y: forestCanvas.height - 20,
+          size: 15 + Math.random() * 25,
+          color: coralColors[i % coralColors.length]
+        });
+      }
+      
+      // Initialize sand particles
+      sandData = [];
+      for (let i = 0; i < 50; i++) {
+        sandData.push({
+          x: Math.random() * forestCanvas.width,
+          y: forestCanvas.height - Math.random() * 15
+        });
+      }
+      
+      oceanInitialized = true;
+    }
+
+    function initializeForestElements() {
+      if (forestInitialized) return;
+      
+      // Initialize trees around the edges (top-down view)
+      treeData = [];
+      const treeCount = 16;
+      const treeColors = ['#228B22', '#32CD32', '#006400', '#8FBC8F'];
+      
+      for (let i = 0; i < treeCount; i++) {
+        let x, y;
+        
+        // Position trees around the perimeter
+        if (i < 4) {
+          // Top edge
+          x = (forestCanvas.width / 5) * (i + 1);
+          y = 30 + Math.random() * 40;
+        } else if (i < 8) {
+          // Right edge
+          x = forestCanvas.width - 30 - Math.random() * 40;
+          y = (forestCanvas.height / 5) * (i - 3);
+        } else if (i < 12) {
+          // Bottom edge
+          x = forestCanvas.width - (forestCanvas.width / 5) * (i - 7);
+          y = forestCanvas.height - 30 - Math.random() * 40;
+        } else {
+          // Left edge
+          x = 30 + Math.random() * 40;
+          y = forestCanvas.height - (forestCanvas.height / 5) * (i - 11);
+        }
+        
+        treeData.push({
+          x: x,
+          y: y,
+          height: 80 + Math.random() * 60,
+          trunkWidth: 8 + Math.random() * 6,
+          trunkColor: '#8B4513',
+          crownSize: 30 + Math.random() * 25,
+          crownColor: treeColors[i % treeColors.length],
+          swayPhase: Math.random() * Math.PI * 2,
+          swaySpeed: 0.8 + Math.random() * 0.4,
+          swayAmount: 2 + Math.random() * 1.5
+        });
+      }
+      
+      // Initialize floating leaves
+      leafData = [];
+      const leafCount = 12;
+      const leafColors = ['#FFD700', '#FFA500', '#FF6347', '#32CD32', '#228B22'];
+      for (let i = 0; i < leafCount; i++) {
+        leafData.push({
+          baseX: Math.random() * forestCanvas.width,
+          baseY: Math.random() * forestCanvas.height * 0.7,
+          size: 3 + Math.random() * 5,
+          color: leafColors[i % leafColors.length],
+          floatPhase: Math.random() * Math.PI * 2,
+          floatSpeed: 0.5 + Math.random() * 0.6,
+          driftSpeed: 0.3 + Math.random() * 0.4
+        });
+      }
+      
+      // Initialize mushrooms
+      mushroomData = [];
+      const mushroomCount = 6;
+      const mushroomColors = ['#FF6B6B', '#8B4513', '#DEB887', '#CD853F'];
+      for (let i = 0; i < mushroomCount; i++) {
+        mushroomData.push({
+          x: (forestCanvas.width / mushroomCount) * i + (Math.random() * 40),
+          y: forestCanvas.height,
+          height: 15 + Math.random() * 15,
+          stemWidth: 4 + Math.random() * 3,
+          capSize: 8 + Math.random() * 8,
+          capColor: mushroomColors[i % mushroomColors.length],
+          hasSpots: Math.random() > 0.5
+        });
+      }
+      
+      // Initialize grass
+      grassData = [];
+      for (let i = 0; i < 80; i++) {
+        grassData.push({
+          x: Math.random() * forestCanvas.width,
+          y: forestCanvas.height - Math.random() * 20,
+          height: 5 + Math.random() * 10
+        });
+      }
+      
+      forestInitialized = true;
+    }
+
+    function initializeSpaceElements() {
+      if (spaceInitialized) return;
+      
+      // Initialize stars
+      starData = [];
+      const starCount = 150;
+      for (let i = 0; i < starCount; i++) {
+        starData.push({
+          x: Math.random() * forestCanvas.width,
+          y: Math.random() * forestCanvas.height,
+          size: 0.5 + Math.random() * 2,
+          brightness: 0.3 + Math.random() * 0.7,
+          twinklePhase: Math.random() * Math.PI * 2,
+          twinkleSpeed: 0.5 + Math.random() * 1.0
+        });
+      }
+      
+      // Initialize planets
+      planetData = [];
+      const planetCount = 3;
+      const planetColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
+      for (let i = 0; i < planetCount; i++) {
+        planetData.push({
+          x: (forestCanvas.width / (planetCount + 1)) * (i + 1) + (Math.random() * 100 - 50),
+          y: (forestCanvas.height / (planetCount + 1)) * (i + 1) + (Math.random() * 100 - 50),
+          size: 20 + Math.random() * 40,
+          color: planetColors[i % planetColors.length],
+          ringColor: i % 2 === 0 ? '#FFD700' : null,
+          orbitPhase: Math.random() * Math.PI * 2,
+          orbitSpeed: 0.2 + Math.random() * 0.3
+        });
+      }
+      
+      // Initialize asteroids
+      asteroidData = [];
+      const asteroidCount = 20;
+      for (let i = 0; i < asteroidCount; i++) {
+        asteroidData.push({
+          baseX: Math.random() * forestCanvas.width,
+          baseY: Math.random() * forestCanvas.height,
+          size: 2 + Math.random() * 6,
+          color: '#8B7355',
+          driftPhase: Math.random() * Math.PI * 2,
+          driftSpeed: 0.3 + Math.random() * 0.5,
+          rotationSpeed: 0.5 + Math.random() * 1.0
+        });
+      }
+      
+      // Initialize nebula clouds
+      nebulaClouds = [];
+      const nebulaCount = 8;
+      const nebulaColors = ['rgba(138, 43, 226, 0.3)', 'rgba(75, 0, 130, 0.3)', 'rgba(255, 20, 147, 0.3)', 'rgba(0, 191, 255, 0.3)'];
+      for (let i = 0; i < nebulaCount; i++) {
+        nebulaClouds.push({
+          x: Math.random() * forestCanvas.width,
+          y: Math.random() * forestCanvas.height,
+          size: 60 + Math.random() * 120,
+          color: nebulaColors[i % nebulaColors.length],
+          driftPhase: Math.random() * Math.PI * 2,
+          driftSpeed: 0.2 + Math.random() * 0.3
+        });
+      }
+      
+      spaceInitialized = true;
+    }
+
+    function drawOceanBackground() {
+      // Initialize ocean elements if not done yet
+      initializeOceanElements();
+      
+      // Ocean depth gradient - from light blue at top to deep blue at bottom
+      const gradient = forestCtx.createLinearGradient(0, 0, 0, forestCanvas.height);
+      gradient.addColorStop(0, '#87CEEB');    // Light blue surface
+      gradient.addColorStop(0.3, '#4682B4');  // Medium blue
+      gradient.addColorStop(0.7, '#1E90FF');  // Deeper blue
+      gradient.addColorStop(1, '#191970');    // Deep navy at bottom
+      forestCtx.fillStyle = gradient;
+      forestCtx.fillRect(0, 0, forestCanvas.width, forestCanvas.height);
+      
+      // Draw sunrays from the top
+      const time = Date.now() * 0.002; // Slightly slower animation speed
+      forestCtx.save();
+      forestCtx.globalAlpha = 0.3;
+      
+      for (let i = 0; i < 6; i++) {
+        const rayX = (forestCanvas.width / 7) * (i + 1) + Math.sin(time * 1.5 + i) * 20;
+        const rayWidth = 30 + Math.sin(time * 1.0 + i) * 10;
+        
+        const rayGradient = forestCtx.createLinearGradient(rayX - rayWidth/2, 0, rayX + rayWidth/2, 0);
+        rayGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        rayGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.4)');
+        rayGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        forestCtx.fillStyle = rayGradient;
+        forestCtx.fillRect(rayX - rayWidth/2, 0, rayWidth, forestCanvas.height); // Extended to full height
+      }
+      forestCtx.restore();
+      
+      // Draw swaying seaweed with smooth animation
+      seaweedData.forEach((seaweed, i) => {
+        const segments = 8;
+        const segmentHeight = seaweed.height / segments;
+        
+        // Gentle seaweed sway animation
+        const swayOffset = Math.sin(time * seaweed.swaySpeed + seaweed.swayPhase) * 15;
+        
+        forestCtx.strokeStyle = seaweed.color;
+        forestCtx.lineWidth = seaweed.thickness;
+        forestCtx.lineCap = 'round';
+        
+        forestCtx.beginPath();
+        forestCtx.moveTo(seaweed.baseX, forestCanvas.height);
+        
+        for (let j = 1; j <= segments; j++) {
+          const segmentY = forestCanvas.height - (j * segmentHeight);
+          const segmentSway = Math.sin(time * 0.8 + i * 0.3 + j * 0.1) * (swayOffset * j / segments);
+          forestCtx.lineTo(seaweed.baseX + segmentSway, segmentY);
+        }
+        
+        forestCtx.stroke();
+        
+        // Add seaweed leaves with gentle movement
+        for (let j = 2; j < segments; j += 2) {
+          const leafY = forestCanvas.height - (j * segmentHeight);
+          const leafSway = Math.sin(time * 0.8 + i * 0.3 + j * 0.1) * (swayOffset * j / segments);
+          const leafX = seaweed.baseX + leafSway;
+          
+          forestCtx.fillStyle = seaweed.color;
+          forestCtx.beginPath();
+          forestCtx.ellipse(leafX + 8, leafY, 6, 12, Math.PI * 0.2, 0, Math.PI * 2);
+          forestCtx.fill();
+          
+          forestCtx.beginPath();
+          forestCtx.ellipse(leafX - 8, leafY, 6, 12, -Math.PI * 0.2, 0, Math.PI * 2);
+          forestCtx.fill();
+        }
+      });
+      
+      // Draw floating bubbles with smooth movement
+      bubbleData.forEach((bubble, i) => {
+        const floatY = bubble.baseY + Math.sin(time * bubble.floatSpeed + bubble.floatPhase) * 20;
+        const driftX = bubble.baseX + Math.sin(time * bubble.driftSpeed + bubble.floatPhase) * 12;
+        
+        // Bubble gradient for 3D effect
+        const bubbleGradient = forestCtx.createRadialGradient(
+          driftX - bubble.size * 0.3, floatY - bubble.size * 0.3, 0,
+          driftX, floatY, bubble.size
+        );
+        bubbleGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+        bubbleGradient.addColorStop(0.7, 'rgba(173, 216, 230, 0.4)');
+        bubbleGradient.addColorStop(1, 'rgba(0, 100, 200, 0.2)');
+        
+        forestCtx.fillStyle = bubbleGradient;
+        forestCtx.beginPath();
+        forestCtx.arc(driftX, floatY, bubble.size, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Bubble highlight
+        forestCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        forestCtx.beginPath();
+        forestCtx.arc(driftX - bubble.size * 0.3, floatY - bubble.size * 0.3, bubble.size * 0.3, 0, Math.PI * 2);
+        forestCtx.fill();
+      });
+      
+      // Draw coral formations on the ocean floor (static)
+      coralData.forEach(coral => {
+        forestCtx.fillStyle = coral.color;
+        
+        // Draw branching coral
+        for (let branch = 0; branch < 3; branch++) {
+          const branchAngle = (Math.PI / 3) * branch - Math.PI / 3;
+          const branchLength = coral.size * (0.7 + Math.sin(time * 0.2 + branch) * 0.1);
+          
+          forestCtx.beginPath();
+          forestCtx.arc(
+            coral.x + Math.cos(branchAngle) * branchLength * 0.5,
+            coral.y - Math.sin(branchAngle + Math.PI/2) * branchLength * 0.5,
+            coral.size * 0.3,
+            0,
+            Math.PI * 2
+          );
+          forestCtx.fill();
+        }
+        
+        // Main coral body
+        forestCtx.beginPath();
+        forestCtx.arc(coral.x, coral.y, coral.size * 0.4, 0, Math.PI * 2);
+        forestCtx.fill();
+      });
+      
+      // Add sandy ocean floor texture (static)
+      forestCtx.fillStyle = '#F4A460';
+      forestCtx.fillRect(0, forestCanvas.height - 15, forestCanvas.width, 15);
+      
+      // Sand texture dots (static)
+      forestCtx.fillStyle = '#DEB887';
+      sandData.forEach(sand => {
+        forestCtx.beginPath();
+        forestCtx.arc(sand.x, sand.y, 1, 0, Math.PI * 2);
+        forestCtx.fill();
+      });
+    }
+
+    function drawForestBackground() {
+      // Initialize forest elements if not done yet
+      initializeForestElements();
+      
+      // Full green grass background (top-down view)
+      const grassGradient = forestCtx.createRadialGradient(
+        forestCanvas.width / 2, forestCanvas.height / 2, 0,
+        forestCanvas.width / 2, forestCanvas.height / 2, Math.max(forestCanvas.width, forestCanvas.height) / 2
+      );
+      grassGradient.addColorStop(0, '#32CD32');    // Bright green in center
+      grassGradient.addColorStop(0.7, '#228B22');  // Forest green
+      grassGradient.addColorStop(1, '#006400');    // Dark green at edges
+      forestCtx.fillStyle = grassGradient;
+      forestCtx.fillRect(0, 0, forestCanvas.width, forestCanvas.height);
+      
+      // Add grass texture across the entire ground
+      const time = Date.now() * 0.002;
+      forestCtx.fillStyle = '#90EE90';
+      grassData.forEach(grass => {
+        const grassSway = Math.sin(time * 0.5 + grass.x * 0.01) * 0.5;
+        forestCtx.fillRect(grass.x + grassSway, grass.y, 1.5, grass.height);
+      });
+      
+      // Add more detailed grass patches for texture
+      forestCtx.fillStyle = '#98FB98';
+      for (let i = 0; i < 100; i++) {
+        const x = (i * 37) % forestCanvas.width; // Pseudo-random distribution
+        const y = (i * 73) % forestCanvas.height;
+        const grassSway = Math.sin(time * 0.3 + x * 0.008) * 0.8;
+        forestCtx.fillRect(x + grassSway, y, 1, 3 + Math.sin(i) * 2);
+      }
+      
+      // Draw dappled sunlight patches moving across the grass
+      forestCtx.save();
+      forestCtx.globalAlpha = 0.15;
+      
+      for (let i = 0; i < 8; i++) {
+        const lightX = (forestCanvas.width / 9) * (i + 1) + Math.sin(time * 0.8 + i) * 30;
+        const lightY = (forestCanvas.height / 9) * (i % 3 + 1) + Math.cos(time * 0.6 + i) * 25;
+        const lightSize = 40 + Math.sin(time * 0.4 + i) * 15;
+        
+        const lightGradient = forestCtx.createRadialGradient(lightX, lightY, 0, lightX, lightY, lightSize);
+        lightGradient.addColorStop(0, 'rgba(255, 255, 200, 0.8)');
+        lightGradient.addColorStop(0.7, 'rgba(255, 255, 200, 0.3)');
+        lightGradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
+        
+        forestCtx.fillStyle = lightGradient;
+        forestCtx.beginPath();
+        forestCtx.arc(lightX, lightY, lightSize, 0, Math.PI * 2);
+        forestCtx.fill();
+      }
+      forestCtx.restore();
+      
+      // Draw trees around the edges (top-down view as circular canopies)
+      treeData.forEach((tree, i) => {
+        const sway = Math.sin(time * tree.swaySpeed + tree.swayPhase) * tree.swayAmount;
+        
+        // Tree shadow (appears first, underneath)
+        forestCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        forestCtx.beginPath();
+        forestCtx.ellipse(tree.x + 3, tree.y + 3, tree.crownSize + 2, tree.crownSize + 2, 0, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Main tree canopy (circular from top-down view)
+        forestCtx.fillStyle = tree.crownColor;
+        forestCtx.beginPath();
+        forestCtx.arc(tree.x + sway, tree.y, tree.crownSize, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Inner canopy details for depth
+        forestCtx.fillStyle = tree.crownColor === '#228B22' ? '#32CD32' : '#228B22';
+        forestCtx.beginPath();
+        forestCtx.arc(tree.x + sway - tree.crownSize * 0.2, tree.y - tree.crownSize * 0.2, tree.crownSize * 0.6, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Tree trunk (small circle in center, visible from top)
+        forestCtx.fillStyle = tree.trunkColor;
+        forestCtx.beginPath();
+        forestCtx.arc(tree.x + sway, tree.y, tree.trunkWidth / 2, 0, Math.PI * 2);
+        forestCtx.fill();
+      });
+      
+      // Draw floating leaves scattered across the clearing
+      leafData.forEach((leaf, i) => {
+        const floatY = leaf.baseY + Math.sin(time * leaf.floatSpeed + leaf.floatPhase) * 8;
+        const driftX = leaf.baseX + Math.sin(time * leaf.driftSpeed + leaf.floatPhase) * 12;
+        
+        forestCtx.save();
+        forestCtx.translate(driftX, floatY);
+        forestCtx.rotate(Math.sin(time * 1.5 + i) * 0.3);
+        
+        // Leaf shadow
+        forestCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        forestCtx.beginPath();
+        forestCtx.ellipse(1, 1, leaf.size, leaf.size * 0.6, 0, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Leaf
+        forestCtx.fillStyle = leaf.color;
+        forestCtx.beginPath();
+        forestCtx.ellipse(0, 0, leaf.size, leaf.size * 0.6, 0, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        forestCtx.restore();
+      });
+      
+      // Draw mushrooms scattered around (top-down view as circles)
+      mushroomData.forEach(mushroom => {
+        // Mushroom shadow
+        forestCtx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        forestCtx.beginPath();
+        forestCtx.arc(mushroom.x + 2, mushroom.y + 2, mushroom.capSize, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Mushroom cap (main circle)
+        forestCtx.fillStyle = mushroom.capColor;
+        forestCtx.beginPath();
+        forestCtx.arc(mushroom.x, mushroom.y, mushroom.capSize, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Mushroom stem (small inner circle)
+        forestCtx.fillStyle = '#F5DEB3';
+        forestCtx.beginPath();
+        forestCtx.arc(mushroom.x, mushroom.y, mushroom.stemWidth, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Mushroom spots (if any)
+        if (mushroom.hasSpots) {
+          forestCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          for (let j = 0; j < 3; j++) {
+            const spotAngle = (j / 3) * Math.PI * 2;
+            const spotX = mushroom.x + Math.cos(spotAngle) * mushroom.capSize * 0.4;
+            const spotY = mushroom.y + Math.sin(spotAngle) * mushroom.capSize * 0.4;
+            forestCtx.beginPath();
+            forestCtx.arc(spotX, spotY, mushroom.capSize * 0.15, 0, Math.PI * 2);
+            forestCtx.fill();
+          }
+        }
+      });
+      
+      // Add forest paths (winding trails for animals to follow)
+      forestCtx.strokeStyle = 'rgba(139, 69, 19, 0.3)';
+      forestCtx.lineWidth = 8;
+      forestCtx.lineCap = 'round';
+      
+      // Curved path 1
+      forestCtx.beginPath();
+      forestCtx.moveTo(forestCanvas.width * 0.1, forestCanvas.height * 0.8);
+      forestCtx.quadraticCurveTo(forestCanvas.width * 0.3, forestCanvas.height * 0.5, forestCanvas.width * 0.6, forestCanvas.height * 0.3);
+      forestCtx.quadraticCurveTo(forestCanvas.width * 0.8, forestCanvas.height * 0.2, forestCanvas.width * 0.9, forestCanvas.height * 0.4);
+      forestCtx.stroke();
+      
+      // Curved path 2
+      forestCtx.beginPath();
+      forestCtx.moveTo(forestCanvas.width * 0.2, forestCanvas.height * 0.2);
+      forestCtx.quadraticCurveTo(forestCanvas.width * 0.5, forestCanvas.height * 0.4, forestCanvas.width * 0.7, forestCanvas.height * 0.7);
+      forestCtx.quadraticCurveTo(forestCanvas.width * 0.8, forestCanvas.height * 0.9, forestCanvas.width * 0.9, forestCanvas.height * 0.8);
+      forestCtx.stroke();
+    }
+
+    function drawSpaceBackground() {
+      // Initialize space elements if not done yet
+      initializeSpaceElements();
+      
+      // Deep space gradient - from dark purple to black
+      const gradient = forestCtx.createRadialGradient(
+        forestCanvas.width / 2, forestCanvas.height / 2, 0,
+        forestCanvas.width / 2, forestCanvas.height / 2, Math.max(forestCanvas.width, forestCanvas.height) / 2
+      );
+      gradient.addColorStop(0, '#1a0033');    // Dark purple center
+      gradient.addColorStop(0.5, '#0d001a');  // Darker purple
+      gradient.addColorStop(1, '#000000');    // Black at edges
+      forestCtx.fillStyle = gradient;
+      forestCtx.fillRect(0, 0, forestCanvas.width, forestCanvas.height);
+      
+      const time = Date.now() * 0.001;
+      
+      // Draw nebula clouds first (background layer)
+      nebulaClouds.forEach((nebula, i) => {
+        const driftX = nebula.x + Math.sin(time * nebula.driftSpeed + nebula.driftPhase) * 30;
+        const driftY = nebula.y + Math.cos(time * nebula.driftSpeed + nebula.driftPhase) * 20;
+        
+        const nebulaGradient = forestCtx.createRadialGradient(
+          driftX, driftY, 0,
+          driftX, driftY, nebula.size
+        );
+        nebulaGradient.addColorStop(0, nebula.color);
+        nebulaGradient.addColorStop(0.7, nebula.color.replace('0.3', '0.1'));
+        nebulaGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        forestCtx.fillStyle = nebulaGradient;
+        forestCtx.beginPath();
+        forestCtx.arc(driftX, driftY, nebula.size, 0, Math.PI * 2);
+        forestCtx.fill();
+      });
+      
+      // Draw twinkling stars
+      starData.forEach((star, i) => {
+        const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase) * 0.3 + 0.7;
+        const alpha = star.brightness * twinkle;
+        
+        // Star glow effect
+        const starGradient = forestCtx.createRadialGradient(
+          star.x, star.y, 0,
+          star.x, star.y, star.size * 3
+        );
+        starGradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+        starGradient.addColorStop(0.5, `rgba(255, 255, 255, ${alpha * 0.3})`);
+        starGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        forestCtx.fillStyle = starGradient;
+        forestCtx.beginPath();
+        forestCtx.arc(star.x, star.y, star.size * 3, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Bright star center
+        forestCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        forestCtx.beginPath();
+        forestCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        forestCtx.fill();
+      });
+      
+      // Draw planets with orbital motion
+      planetData.forEach((planet, i) => {
+        const orbitRadius = 15;
+        const orbitX = planet.x + Math.cos(time * planet.orbitSpeed + planet.orbitPhase) * orbitRadius;
+        const orbitY = planet.y + Math.sin(time * planet.orbitSpeed + planet.orbitPhase) * orbitRadius;
+        
+        // Planet shadow/glow
+        const planetGradient = forestCtx.createRadialGradient(
+          orbitX - planet.size * 0.3, orbitY - planet.size * 0.3, 0,
+          orbitX, orbitY, planet.size
+        );
+        planetGradient.addColorStop(0, planet.color);
+        planetGradient.addColorStop(0.7, planet.color.replace('#', '#44').substring(0, 7) + '88');
+        planetGradient.addColorStop(1, planet.color.replace('#', '#22').substring(0, 7) + '44');
+        
+        forestCtx.fillStyle = planetGradient;
+        forestCtx.beginPath();
+        forestCtx.arc(orbitX, orbitY, planet.size, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        // Planet rings (if any)
+        if (planet.ringColor) {
+          forestCtx.strokeStyle = planet.ringColor;
+          forestCtx.lineWidth = 2;
+          forestCtx.globalAlpha = 0.6;
+          forestCtx.beginPath();
+          forestCtx.ellipse(orbitX, orbitY, planet.size * 1.5, planet.size * 0.3, 0, 0, Math.PI * 2);
+          forestCtx.stroke();
+          forestCtx.globalAlpha = 1;
+        }
+        
+        // Planet surface details
+        forestCtx.fillStyle = `rgba(255, 255, 255, 0.2)`;
+        forestCtx.beginPath();
+        forestCtx.arc(orbitX - planet.size * 0.3, orbitY - planet.size * 0.3, planet.size * 0.4, 0, Math.PI * 2);
+        forestCtx.fill();
+      });
+      
+      // Draw floating asteroids
+      asteroidData.forEach((asteroid, i) => {
+        const driftX = asteroid.baseX + Math.sin(time * asteroid.driftSpeed + asteroid.driftPhase) * 25;
+        const driftY = asteroid.baseY + Math.cos(time * asteroid.driftSpeed + asteroid.driftPhase) * 15;
+        const rotation = time * asteroid.rotationSpeed;
+        
+        forestCtx.save();
+        forestCtx.translate(driftX, driftY);
+        forestCtx.rotate(rotation);
+        
+        // Asteroid shape (irregular)
+        forestCtx.fillStyle = asteroid.color;
+        forestCtx.beginPath();
+        for (let j = 0; j < 6; j++) {
+          const angle = (j / 6) * Math.PI * 2;
+          const radius = asteroid.size * (0.7 + Math.sin(j * 2.3) * 0.3);
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+          
+          if (j === 0) {
+            forestCtx.moveTo(x, y);
+          } else {
+            forestCtx.lineTo(x, y);
+          }
+        }
+        forestCtx.closePath();
+        forestCtx.fill();
+        
+        // Asteroid highlights
+        forestCtx.fillStyle = 'rgba(139, 115, 85, 0.6)';
+        forestCtx.beginPath();
+        forestCtx.arc(-asteroid.size * 0.2, -asteroid.size * 0.2, asteroid.size * 0.3, 0, Math.PI * 2);
+        forestCtx.fill();
+        
+        forestCtx.restore();
+      });
+      
+      // Add distant galaxy spiral (subtle background element)
+      forestCtx.save();
+      forestCtx.globalAlpha = 0.1;
+      forestCtx.translate(forestCanvas.width * 0.8, forestCanvas.height * 0.2);
+      forestCtx.rotate(time * 0.1);
+      
+      for (let i = 0; i < 3; i++) {
+        const spiralGradient = forestCtx.createRadialGradient(0, 0, 0, 0, 0, 60);
+        spiralGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+        spiralGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        forestCtx.fillStyle = spiralGradient;
+        forestCtx.beginPath();
+        forestCtx.ellipse(0, 0, 60, 15, (i * Math.PI * 2) / 3, 0, Math.PI * 2);
+        forestCtx.fill();
+      }
+      
+      forestCtx.restore();
+    }
+
+    function drawBackground() {
+      if (currentTheme === 'ocean') {
+        drawOceanBackground();
+      } else if (currentTheme === 'forest') {
+        drawForestBackground();
+      } else if (currentTheme === 'space') {
+        drawSpaceBackground();
+      }
+    }
+
+    function switchTheme(newTheme) {
+      currentTheme = newTheme;
+      
+      // Update active theme button
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector(`[data-theme="${newTheme}"]`).classList.add('active');
+      
+      // Update title based on theme
+      const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+      const title = document.querySelector('.title');
+      const subtitle = document.querySelector('.subtitle');
+      
+      if (newTheme === 'ocean') {
+        title.textContent = config.app_title || 'Ocean Draw Alive';
+        subtitle.textContent = config.draw_instruction || 'Draw sea creatures and watch them swim in the ocean!';
+      } else if (newTheme === 'forest') {
+        title.textContent = config.app_title || 'Forest Draw Alive';
+        subtitle.textContent = config.draw_instruction || 'Draw forest animals and watch them roam in the woods!';
+      } else if (newTheme === 'space') {
+        title.textContent = config.app_title || 'Space Draw Alive';
+        subtitle.textContent = config.draw_instruction || 'Draw space creatures and watch them float through the cosmos!';
+      }
+      
+      // Reset background elements initialization
+      oceanInitialized = false;
+      forestInitialized = false;
+      spaceInitialized = false;
+      
+      // Redraw background
+      drawBackground();
+    }
+
+    function animateDrawing() {
+      if (strokes.length === 0) {
+        showMessage('Draw something first!');
+        return;
+      }
+      
+      const newCharacter = {
+        id: Date.now(),
+        type: 'drawing',
+        strokes: JSON.parse(JSON.stringify(strokes)),
+        currentX: forestCanvas.width / 2,
+        currentY: currentTheme === 'ocean' ? forestCanvas.height / 2 : forestCanvas.height / 2,
+        targetX: forestCanvas.width / 2,
+        targetY: currentTheme === 'ocean' ? forestCanvas.height / 2 : forestCanvas.height / 2,
+        walkingSpeed: currentTheme === 'ocean' ? 
+          (0.6 + Math.random() * 1.4) : // Ocean: 0.6 to 2.0 speed
+          currentTheme === 'forest' ?
+          (0.4 + Math.random() * 1.0) : // Forest: 0.4 to 1.4 speed
+          (0.3 + Math.random() * 0.8),  // Space: 0.3 to 1.1 speed (slower floating)
+        nextDirectionChange: 0,
+        isMovingRight: Math.random() > 0.5,
+        animationTime: 0,
+        walkCycleOffset: Math.random() * Math.PI * 2,
+        theme: currentTheme
+      };
+      
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      newCharacter.strokes.forEach(stroke => {
+        stroke.forEach(point => {
+          minX = Math.min(minX, point.x);
+          maxX = Math.max(maxX, point.x);
+          minY = Math.min(minY, point.y);
+          maxY = Math.max(maxY, point.y);
+        });
+      });
+      
+      newCharacter.centerX = (minX + maxX) / 2;
+      newCharacter.centerY = (minY + maxY) / 2;
+      
+      animatedCharacters.push(newCharacter);
+      
+      strokes = [];
+      currentStroke = [];
+      isDrawing = false;
+      redrawDrawingCanvas();
+      
+      if (!isAnimating) {
+        isAnimating = true;
+        animateAllCharacters();
+      }
+      
+      const creatureType = currentTheme === 'ocean' ? 'sea creature' : 
+                        currentTheme === 'forest' ? 'forest animal' : 'space creature';
+      const environment = currentTheme === 'ocean' ? 'ocean' : 
+                         currentTheme === 'forest' ? 'forest' : 'space';
+      const themeCharacterCount = animatedCharacters.filter(char => char.theme === currentTheme).length;
+      showMessage(`${creatureType} ${themeCharacterCount} added to ${environment}!`);
+    }
+
+    function removeBackground(imageData) {
+      const data = imageData.data;
+      const width = imageData.width;
+      const height = imageData.height;
+      
+      const cornerPixels = [
+        [0, 0], [width-1, 0], [0, height-1], [width-1, height-1]
+      ];
+      
+      let bgR = 0, bgG = 0, bgB = 0;
+      cornerPixels.forEach(([x, y]) => {
+        const idx = (y * width + x) * 4;
+        bgR += data[idx];
+        bgG += data[idx + 1];
+        bgB += data[idx + 2];
+      });
+      bgR /= cornerPixels.length;
+      bgG /= cornerPixels.length;
+      bgB /= cornerPixels.length;
+      
+      const threshold = 50;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        const diff = Math.sqrt(
+          Math.pow(r - bgR, 2) + 
+          Math.pow(g - bgG, 2) + 
+          Math.pow(b - bgB, 2)
+        );
+        
+        if (diff < threshold) {
+          data[i + 3] = 0;
+        }
+      }
+      
+      return imageData;
+    }
+
+    function handleImageUpload() {
+      const file = document.getElementById('imageUpload').files[0];
+      if (!file) return;
+      
+      showMessage('Processing image...');
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          const maxSize = 150;
+          let { width, height } = img;
+          if (width > maxSize || height > maxSize) {
+            const scale = maxSize / Math.max(width, height);
+            width *= scale;
+            height *= scale;
+          }
+          
+          tempCanvas.width = width;
+          tempCanvas.height = height;
+          
+          tempCtx.drawImage(img, 0, 0, width, height);
+          const imageData = tempCtx.getImageData(0, 0, width, height);
+          const processedData = removeBackground(imageData);
+          tempCtx.putImageData(processedData, 0, 0);
+          
+          const newCharacter = {
+            id: Date.now(),
+            type: 'image',
+            imageCanvas: tempCanvas,
+            width: width,
+            height: height,
+            currentX: forestCanvas.width / 2,
+            currentY: currentTheme === 'ocean' ? forestCanvas.height / 2 : forestCanvas.height / 2,
+            targetX: forestCanvas.width / 2,
+            targetY: currentTheme === 'ocean' ? forestCanvas.height / 2 : forestCanvas.height / 2,
+            walkingSpeed: currentTheme === 'ocean' ? 
+              (0.6 + Math.random() * 1.4) : // Ocean: 0.6 to 2.0 speed
+              currentTheme === 'forest' ?
+              (0.4 + Math.random() * 1.0) : // Forest: 0.4 to 1.4 speed
+              (0.3 + Math.random() * 0.8),  // Space: 0.3 to 1.1 speed (slower floating)
+            nextDirectionChange: 0,
+            isMovingRight: Math.random() > 0.5,
+            animationTime: 0,
+            walkCycleOffset: Math.random() * Math.PI * 2,
+            centerX: width / 2,
+            centerY: height / 2,
+            theme: currentTheme
+          };
+          
+          animatedCharacters.push(newCharacter);
+          
+          if (!isAnimating) {
+            isAnimating = true;
+            animateAllCharacters();
+          }
+          
+          const creatureType = currentTheme === 'ocean' ? 'sea creature' : 
+                            currentTheme === 'forest' ? 'forest animal' : 'space creature';
+          const environment = currentTheme === 'ocean' ? 'ocean' : 
+                             currentTheme === 'forest' ? 'forest' : 'space';
+          const themeCharacterCount = animatedCharacters.filter(char => char.theme === currentTheme).length;
+          showMessage(`Image ${creatureType} ${themeCharacterCount} added to ${environment}!`);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+    
+    function getNewTarget(character) {
+      if (character.theme === 'ocean') {
+        // Ocean creatures swim in all directions (3D movement)
+        const swimDistance = 100 + Math.random() * 150;
+        const angle = Math.random() * Math.PI * 2; // Random direction
+        
+        const maxX = forestCanvas.width * 0.9;
+        const minX = forestCanvas.width * 0.1;
+        const maxY = forestCanvas.height * 0.9;
+        const minY = forestCanvas.height * 0.1;
+        
+        // Calculate new target position
+        let newX = character.currentX + Math.cos(angle) * swimDistance;
+        let newY = character.currentY + Math.sin(angle) * swimDistance;
+        
+        // Keep within bounds
+        character.targetX = Math.max(minX, Math.min(maxX, newX));
+        character.targetY = Math.max(minY, Math.min(maxY, newY));
+        
+        character.nextDirectionChange = character.animationTime + 2000 + Math.random() * 3000;
+      } else if (character.theme === 'forest') {
+        // Forest creatures roam freely in all directions (top-down view)
+        const roamDistance = 80 + Math.random() * 150;
+        const angle = Math.random() * Math.PI * 2; // Random direction
+        
+        const maxX = forestCanvas.width * 0.9;
+        const minX = forestCanvas.width * 0.1;
+        const maxY = forestCanvas.height * 0.9;
+        const minY = forestCanvas.height * 0.1;
+        
+        // Calculate new target position
+        let newX = character.currentX + Math.cos(angle) * roamDistance;
+        let newY = character.currentY + Math.sin(angle) * roamDistance;
+        
+        // Keep within bounds
+        character.targetX = Math.max(minX, Math.min(maxX, newX));
+        character.targetY = Math.max(minY, Math.min(maxY, newY));
+        
+        // Update movement direction for animation
+        character.isMovingRight = character.targetX > character.currentX;
+        
+        character.nextDirectionChange = character.animationTime + 1500 + Math.random() * 2500;
+      } else if (character.theme === 'space') {
+        // Space creatures float in zero gravity with gentle drifting
+        const floatDistance = 60 + Math.random() * 120;
+        const angle = Math.random() * Math.PI * 2; // Random direction
+        
+        const maxX = forestCanvas.width * 0.95;
+        const minX = forestCanvas.width * 0.05;
+        const maxY = forestCanvas.height * 0.95;
+        const minY = forestCanvas.height * 0.05;
+        
+        // Calculate new target position
+        let newX = character.currentX + Math.cos(angle) * floatDistance;
+        let newY = character.currentY + Math.sin(angle) * floatDistance;
+        
+        // Keep within bounds
+        character.targetX = Math.max(minX, Math.min(maxX, newX));
+        character.targetY = Math.max(minY, Math.min(maxY, newY));
+        
+        // Update movement direction for animation
+        character.isMovingRight = character.targetX > character.currentX;
+        
+        character.nextDirectionChange = character.animationTime + 2500 + Math.random() * 4000; // Longer pauses in space
+      }
+    }
+    
+    function animateAllCharacters() {
+      if (animatedCharacters.length === 0) {
+        isAnimating = false;
+        return;
+      }
+      
+      drawBackground();
+      
+      // Only animate characters that belong to the current theme
+      const currentThemeCharacters = animatedCharacters.filter(character => character.theme === currentTheme);
+      
+      currentThemeCharacters.forEach(character => {
+        if (character.animationTime >= character.nextDirectionChange) {
+          getNewTarget(character);
+        }
+        
+        const deltaX = character.targetX - character.currentX;
+        const deltaY = character.targetY - character.currentY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance > 2) {
+          character.currentX += (deltaX / distance) * character.walkingSpeed;
+          character.currentY += (deltaY / distance) * character.walkingSpeed;
+        } else {
+          getNewTarget(character);
+        }
+        
+        const walkCycle = character.animationTime * 0.008 + character.walkCycleOffset;
+        
+        let walkBounce, sway, rotation, finalX, finalY;
+        
+        if (character.theme === 'ocean') {
+          // Swimming motion - gentle floating and swaying
+          const swimCycle = character.animationTime * 0.006 + character.walkCycleOffset;
+          walkBounce = Math.sin(swimCycle) * 2; // Gentle up-down floating
+          sway = Math.sin(swimCycle * 0.8) * 3; // Side-to-side swimming motion
+          rotation = Math.sin(swimCycle * 0.4) * 0.08; // More rotation for swimming
+          
+          finalX = character.currentX + sway;
+          finalY = character.currentY + walkBounce;
+        } else if (character.theme === 'space') {
+          // Zero gravity floating - very gentle, ethereal movement
+          const floatCycle = character.animationTime * 0.004 + character.walkCycleOffset;
+          walkBounce = Math.sin(floatCycle) * 3; // Gentle floating up-down
+          sway = Math.sin(floatCycle * 0.6) * 4; // Slow side-to-side drift
+          rotation = Math.sin(floatCycle * 0.3) * 0.12; // More rotation in zero gravity
+          
+          // Add secondary floating motion for more realistic zero-g effect
+          const secondaryFloat = Math.sin(floatCycle * 1.3) * 1.5;
+          const secondarySway = Math.cos(floatCycle * 0.9) * 2;
+          
+          finalX = character.currentX + sway + secondarySway;
+          finalY = character.currentY + walkBounce + secondaryFloat;
+        } else {
+          // Walking motion - ground-based movement
+          walkBounce = Math.sin(walkCycle) * 1.5; // Reduced bounce for top-down view
+          sway = Math.sin(walkCycle * 0.7) * 1; // Minimal sway for walking
+          rotation = Math.sin(walkCycle * 0.5) * 0.03; // Subtle rotation
+          
+          finalX = character.currentX + sway;
+          finalY = character.currentY + walkBounce;
+        }
+        
+        // Determine movement direction for flipping
+        const movingRight = character.targetX > character.currentX;
+        const shouldFlip = movingRight; // Flip when moving right (drawings face left by default)
+        
+        forestCtx.save();
+        forestCtx.translate(finalX, finalY);
+        
+        // Apply horizontal flip if moving right
+        if (shouldFlip) {
+          forestCtx.scale(-1, 1);
+        }
+        
+        forestCtx.rotate(rotation);
+        forestCtx.translate(-character.centerX, -character.centerY);
+        
+        if (character.type === 'drawing') {
+          character.strokes.forEach(stroke => {
+            if (stroke.length < 2) return;
+            
+            forestCtx.strokeStyle = stroke[0].color;
+            forestCtx.lineWidth = stroke[0].size;
+            forestCtx.lineCap = 'round';
+            forestCtx.lineJoin = 'round';
+            
+            forestCtx.beginPath();
+            forestCtx.moveTo(stroke[0].x, stroke[0].y);
+            
+            for (let i = 1; i < stroke.length; i++) {
+              forestCtx.lineTo(stroke[i].x, stroke[i].y);
+            }
+            
+            forestCtx.stroke();
+          });
+        } else if (character.type === 'image') {
+          forestCtx.drawImage(character.imageCanvas, 0, 0, character.width, character.height);
+        }
+        
+        forestCtx.restore();
+        
+        character.animationTime += 16;
+      });
+      
+      requestAnimationFrame(animateAllCharacters);
+    }
+
+    function clearCanvas() {
+      strokes = [];
+      currentStroke = [];
+      redrawDrawingCanvas();
+      showMessage('Drawing cleared!');
+    }
+
+    function openDrawingPanel() {
+      const popup = document.getElementById('drawingPopup');
+      popup.style.display = 'block';
+      
+      // Resize canvas when popup opens
+      setTimeout(() => {
+        const canvasArea = drawingCanvas.parentElement;
+        drawingCanvas.width = canvasArea.clientWidth;
+        drawingCanvas.height = canvasArea.clientHeight;
+        redrawDrawingCanvas();
+      }, 100);
+    }
+
+    function closeDrawingPanel() {
+      const popup = document.getElementById('drawingPopup');
+      popup.style.display = 'none';
+    }
+
+    function openThemePanel() {
+      const popup = document.getElementById('themePopup');
+      popup.style.display = 'block';
+    }
+
+    function closeThemePanel() {
+      const popup = document.getElementById('themePopup');
+      popup.style.display = 'none';
+    }
+
+    function openColorBoxPanel() {
+      const popup = document.getElementById('colorWheelPopup');
+      popup.style.display = 'block';
+      
+      // Initialize color box when popup opens
+      setTimeout(() => {
+        drawColorBox();
+        updateColorBoxPicker(100, 60); // Center position initially
+        
+        // Set initial slider values
+        document.getElementById('brightnessSlider').value = currentBrightness;
+        
+        updateColorFromHSL();
+      }, 100);
+    }
+
+    function closeColorBoxPanel() {
+      const popup = document.getElementById('colorWheelPopup');
+      popup.style.display = 'none';
+    }
+
+    let selectedBoxColor = '#000000';
+    let currentHue = 0;
+    let currentSaturation = 100;
+    let currentBrightness = 50;
+
+    function initControls() {
+      // Color selection
+      document.querySelectorAll('.color-option').forEach(option => {
+        option.addEventListener('click', () => {
+          document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+          document.querySelector('.color-wheel-btn').classList.remove('selected');
+          option.classList.add('selected');
+          currentColor = option.dataset.color;
+        });
+      });
+      
+      // Color wheel button
+      document.getElementById('openColorWheelBtn').addEventListener('click', () => {
+        openColorBoxPanel();
+      });
+      
+      // Size selection
+      document.querySelectorAll('.size-option').forEach(option => {
+        option.addEventListener('click', () => {
+          document.querySelectorAll('.size-option').forEach(o => o.classList.remove('selected'));
+          option.classList.add('selected');
+          currentSize = parseInt(option.dataset.size);
+        });
+      });
+      
+      // Button events
+      document.getElementById('openDrawingBtn').addEventListener('click', openDrawingPanel);
+      document.getElementById('closeDrawingBtn').addEventListener('click', closeDrawingPanel);
+      document.getElementById('animateDrawingBtn').addEventListener('click', animateDrawing);
+      document.getElementById('clearDrawingBtn').addEventListener('click', clearCanvas);
+      document.getElementById('uploadBtn').addEventListener('click', () => {
+        document.getElementById('imageUpload').click();
+      });
+      document.getElementById('imageUpload').addEventListener('change', (e) => {
+        handleImageUpload();
+        e.target.value = '';
+      });
+      document.getElementById('themeBtn').addEventListener('click', openThemePanel);
+      document.getElementById('closeThemeBtn').addEventListener('click', closeThemePanel);
+      document.getElementById('closeColorWheelBtn').addEventListener('click', closeColorBoxPanel);
+      document.getElementById('selectColorBtn').addEventListener('click', () => {
+        // Apply the selected color from the box
+        currentColor = selectedBoxColor;
+        
+        // Update UI to show color wheel is selected
+        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+        document.querySelector('.color-wheel-btn').classList.add('selected');
+        
+        closeColorBoxPanel();
+        showMessage(`Custom color selected!`);
+      });
+      
+      // Brightness slider
+      document.getElementById('brightnessSlider').addEventListener('input', (e) => {
+        currentBrightness = parseInt(e.target.value);
+        drawColorBox(); // Redraw the color box with new brightness
+        updateColorFromHSL();
+      });
+      
+      // Close popups when clicking outside
+      document.getElementById('drawingPopup').addEventListener('click', (e) => {
+        if (e.target.classList.contains('drawing-popup')) {
+          closeDrawingPanel();
+        }
+      });
+      
+      document.getElementById('themePopup').addEventListener('click', (e) => {
+        if (e.target.classList.contains('drawing-popup')) {
+          closeThemePanel();
+        }
+      });
+      
+      document.getElementById('colorWheelPopup').addEventListener('click', (e) => {
+        if (e.target.classList.contains('drawing-popup')) {
+          closeColorBoxPanel();
+        }
+      });
+      
+      // Theme selection
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const theme = btn.dataset.theme;
+          switchTheme(theme);
+          closeThemePanel();
+        });
+      });
+    }
+
+    async function onConfigChange(config) {
+      const mergedConfig = { ...defaultConfig, ...config };
+      
+      document.body.style.background = mergedConfig.background_color;
+      
+      const title = document.querySelector('.title');
+      title.textContent = mergedConfig.app_title;
+      title.style.color = mergedConfig.text_color;
+      
+      const subtitle = document.querySelector('.subtitle');
+      subtitle.textContent = mergedConfig.draw_instruction;
+      subtitle.style.color = mergedConfig.text_color;
+      
+      const animateBtn = document.getElementById('animateDrawingBtn');
+      animateBtn.textContent = mergedConfig.animate_button_text;
+      animateBtn.style.background = mergedConfig.primary_button_color;
+      
+      const clearBtn = document.getElementById('clearDrawingBtn');
+      clearBtn.textContent = mergedConfig.clear_button_text;
+      clearBtn.style.background = mergedConfig.secondary_button_color;
+      
+      if (drawingCanvas && drawingCtx) {
+        redrawDrawingCanvas();
+      }
+      if (forestCanvas && forestCtx) {
+        drawBackground();
+      }
+    }
+
+    // Start background animation loop
+    function startBackgroundAnimation() {
+      function animateBackground() {
+        drawBackground();
+        requestAnimationFrame(animateBackground);
+      }
+      animateBackground();
+    }
+
+    // Initialize everything
+    document.addEventListener('DOMContentLoaded', () => {
+      initCanvas();
+      initControls();
+      loadForestImage();
+      startBackgroundAnimation();
+    });
+
+    // Element SDK integration
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            {
+              get: () => config.background_color || defaultConfig.background_color,
+              set: (value) => {
+                config.background_color = value;
+                window.elementSdk.setConfig({ background_color: value });
+              }
+            },
+            {
+              get: () => config.canvas_background || defaultConfig.canvas_background,
+              set: (value) => {
+                config.canvas_background = value;
+                window.elementSdk.setConfig({ canvas_background: value });
+              }
+            },
+            {
+              get: () => config.text_color || defaultConfig.text_color,
+              set: (value) => {
+                config.text_color = value;
+                window.elementSdk.setConfig({ text_color: value });
+              }
+            },
+            {
+              get: () => config.primary_button_color || defaultConfig.primary_button_color,
+              set: (value) => {
+                config.primary_button_color = value;
+                window.elementSdk.setConfig({ primary_button_color: value });
+              }
+            },
+            {
+              get: () => config.secondary_button_color || defaultConfig.secondary_button_color,
+              set: (value) => {
+                config.secondary_button_color = value;
+                window.elementSdk.setConfig({ secondary_button_color: value });
+              }
+            }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ["app_title", config.app_title || defaultConfig.app_title],
+          ["draw_instruction", config.draw_instruction || defaultConfig.draw_instruction],
+          ["animate_button_text", config.animate_button_text || defaultConfig.animate_button_text],
+          ["clear_button_text", config.clear_button_text || defaultConfig.clear_button_text]
+        ])
+      });
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'998255f1b72e7e7f',t:'MTc2MjA3MjkxNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
