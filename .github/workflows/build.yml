@@ -50,9 +50,15 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Prepare site (app at / and at /web/)
+        run: |
+          mkdir -p _site
+          cp -r web/. _site/
+          cp -r web _site/web
+          touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
 
