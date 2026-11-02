@@ -17,9 +17,12 @@
     <header class="topbar">
       <div class="brand">
         <img src="icons/icon-192.png" alt="" class="brand-logo">
-        <span class="brand-name">Draw Alive</span>
+        <span class="brand-name">Draw <b>Alive</b></span>
       </div>
       <nav class="tabs" id="sceneTabs" aria-label="Scenes"></nav>
+      <button class="icon-btn" id="overviewBtn" title="See all worlds at once" aria-label="See all worlds at once">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+      </button>
       <button class="icon-btn add-scene" id="addSceneBtn" title="Add a new environment" aria-label="Add a new environment">
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -30,7 +33,8 @@
         <button role="menuitem" data-act="rename">✏️ Rename scene</button>
         <button role="menuitem" data-act="duplicate">📑 Duplicate scene</button>
         <button role="menuitem" data-act="photo" id="menuChangePhoto">🖼️ Change background photo</button>
-        <button role="menuitem" data-act="party">🎉 Make everyone jump</button>
+        <button role="menuitem" data-act="party">🎉 Party! Make everyone dance</button>
+        <button role="menuitem" data-act="interact" id="menuInteract">🤝 Creatures play together: On</button>
         <button role="menuitem" data-act="clear">🧹 Remove all creatures</button>
         <button role="menuitem" data-act="delete" class="danger">🗑️ Delete scene</button>
       </div>
@@ -64,8 +68,9 @@
           <label>Speed <input type="range" id="cpSpeed" min="0" max="3" step="0.1"></label>
           <label>Moves
             <select id="cpMotion">
-              <option value="auto">Auto</option><option value="swim">Swim</option><option value="walk">Walk</option>
-              <option value="roam">Roam</option><option value="fly">Fly</option><option value="float">Float</option>
+              <option value="auto">Auto</option><option value="walk">Walk</option><option value="hop">Hop</option>
+              <option value="bounce">Bounce</option><option value="dash">Dash</option><option value="slither">Slither</option>
+              <option value="roam">Roam</option><option value="swim">Swim</option><option value="fly">Fly</option><option value="float">Float</option>
             </select>
           </label>
           <label>Move to
@@ -75,10 +80,19 @@
         <div class="cp-actions">
           <button class="chip" id="cpFlip" title="Swap which way it faces">↔️ Flip</button>
           <button class="chip" id="cpCopy">📑 Copy</button>
+          <button class="chip" id="cpTrick">🤸 Trick</button>
           <button class="chip" id="cpFront">⬆️ Front</button>
           <button class="chip" id="cpSave">💾 Save</button>
           <button class="chip danger" id="cpDelete">🗑️ Delete</button>
         </div>
+      </section>
+      <!-- all worlds at once -->
+      <section class="overview" id="overview" aria-label="All worlds">
+        <div class="ov-head">
+          <h3>🗺️ All your worlds <small id="ovCount"></small></h3>
+          <button class="icon-btn" id="ovClose" aria-label="Close overview"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="ov-grid" id="ovGrid"></div>
       </section>
       <div class="hint" id="worldHint">Tip: drag creatures to move them, tap one to edit it.</div>
     </main>
@@ -97,6 +111,7 @@
   </div>
 
   <input type="file" id="photoInput" accept="image/*" hidden>
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
   <input type="file" id="bgInput" accept="image/*" hidden>
 
   <!-- ===== Drawing pad ===== -->
@@ -196,6 +211,46 @@
     </div>
   </div>
 
+  <!-- ===== Photo source chooser ===== -->
+  <div class="modal" id="photoChooser" aria-hidden="true" role="dialog" aria-labelledby="pcTitle">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="pcTitle">📷 Add a photo creature</h3>
+        <button class="icon-btn modal-close" data-close="photoChooser" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="pc-grid">
+        <button class="pc-btn" id="pcFile" data-autofocus><span>🖼️</span><b>Choose a picture</b><small>From your files or gallery</small></button>
+        <button class="pc-btn" id="pcCamera"><span>📸</span><b>Use the camera</b><small>Snap your drawing</small></button>
+        <button class="pc-btn" id="pcPaste"><span>📋</span><b>Paste</b><small>A copied picture</small></button>
+      </div>
+      <p class="muted small center">Tip: copy any picture and press <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere in the app.</p>
+    </div>
+  </div>
+
+  <!-- ===== Camera ===== -->
+  <div class="modal full" id="cameraModal" aria-hidden="true" role="dialog" aria-labelledby="camTitle">
+    <div class="sheet cam">
+      <div class="sheet-head">
+        <h3 id="camTitle">📸 Snap your creature</h3>
+        <div class="head-actions">
+          <button class="icon-btn" id="camSwitch" title="Switch camera" aria-label="Switch camera"><svg viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><path d="M9.5 13.5a2.5 2.5 0 104-2"/><path d="M13.5 9.5v2h-2"/></svg></button>
+          <button class="icon-btn modal-close" data-close="cameraModal" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+      </div>
+      <div class="cam-area">
+        <video id="camVideo" playsinline muted autoplay></video>
+        <div class="cam-guide"></div>
+        <div class="cam-msg" id="camMsg">Starting camera…</div>
+        <div class="cam-flash" id="camFlash"></div>
+      </div>
+      <div class="cam-bar">
+        <span class="muted small">Put your drawing on a plain background</span>
+        <button class="shutter" id="camShoot" aria-label="Take photo"></button>
+        <button class="btn btn-ghost" id="camTimer">⏱️ 3s</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Add environment ===== -->
   <div class="modal" id="sceneModal" aria-hidden="true" role="dialog" aria-labelledby="sceneTitle">
     <div class="sheet wide">
@@ -228,9 +283,11 @@
       <ol class="help-list">
         <li><b>🎨 Draw</b> any creature (facing left) and press <b>Bring to life</b>.</li>
         <li><b>🖍️ Colour-in</b>: pick an animal outline, colour it with the brush or the 🪣 fill – it's cut out along the outline automatically.</li>
-        <li><b>📷 Photo</b>: take or choose a picture (e.g. a drawing on paper). The background is removed for you – touch up with Keep / Remove.</li>
+        <li><b>📷 Photo</b>: choose a picture, use the <b>camera</b>, or just <b>paste</b> one (<kbd>Ctrl</kbd>+<kbd>V</kbd>). The background is removed for you – touch up with Keep / Remove.</li>
         <li><b>＋</b> at the top adds another environment (Ocean, Forest, Space, Meadow, Snow or your own photo). Every environment keeps its own creatures.</li>
-        <li><b>Drag</b> creatures to move them. <b>Tap</b> one to change size, speed, how it moves, flip, copy or delete it.</li>
+        <li><b>Drag</b> creatures to move them. <b>Tap</b> one to change size, speed, how it moves (walk, hop, bounce, dash, slither, swim, fly…), make it do a trick, flip, copy or delete it.</li>
+        <li>Creatures do little tricks by themselves and sometimes <b>play together</b> – they wave, chase, dance and high-five.</li>
+        <li><b>▦</b> at the top shows <b>all your worlds at once</b>. Tap one to jump into it.</li>
         <li><b>🖼️ Save picture</b> keeps a snapshot of your world. Everything is saved automatically on this device.</li>
       </ol>
       <p class="muted small">Shortcuts: <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo · <kbd>Del</kbd> delete creature · <kbd>Space</kbd> pause · <kbd>Esc</kbd> close</p>

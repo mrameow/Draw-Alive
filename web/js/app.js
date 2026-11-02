@@ -7,7 +7,7 @@
   const PALETTE = ['#1f1d3a', '#ffffff', '#ff6b6b', '#ff922b', '#ffd43b', '#94d82d', '#38d9a9', '#4dabf7', '#5c7cfa',
     '#9775fa', '#f783ac', '#a0522d', '#e8590c', '#2f9e44', '#1971c2', '#868e96', '#ffc9c9', '#fff3bf'];
 
-  let state = { version: 1, scenes: [], current: null };
+  let state = { version: 1, scenes: [], current: null, settings: { interact: true } };
   let saveTimer = null;
 
   /* ================= persistence ================= */
@@ -15,10 +15,11 @@
     return {
       version: 1,
       current: state.current,
+      settings: state.settings,
       scenes: state.scenes.map((s) => ({
         id: s.id, name: s.name, type: s.type, seed: s.seed, bgImage: s.bgImage || null, motion: s.motion || null,
         creatures: s.creatures.map((c) => ({
-          id: c.id, name: c.name, kind: c.kind || null, sprite: c.sprite, w: c.w, h: c.h,
+          id: c.id, name: c.name, kind: c.kind || null, move: c.move || null, sprite: c.sprite, w: c.w, h: c.h,
           scale: c.scale, speed: c.speed, facing: c.facing, motion: c.motion, x: c.x, y: c.y
         }))
       }))
@@ -36,6 +37,7 @@
     if (saved && Array.isArray(saved.scenes) && saved.scenes.length) {
       state.scenes = saved.scenes.map((s) => Object.assign({ creatures: [] }, s, { creatures: (s.creatures || []).filter((c) => c && c.sprite) }));
       state.current = state.scenes.some((s) => s.id === saved.current) ? saved.current : state.scenes[0].id;
+      state.settings = Object.assign({ interact: true }, saved.settings || {});
     } else {
       const s = newScene('ocean');
       state.scenes = [s];
@@ -94,7 +96,7 @@
 
   function updateEmpty() {
     const s = currentScene();
-    $('emptyState').classList.toggle('show', s.creatures.length === 0);
+    $('emptyState').classList.toggle('show', s.creatures.length === 0 && !$('overview').classList.contains('open'));
     $('emptyEmoji').textContent = (DA.ENVIRONMENTS[s.type] || {}).icon || '🌍';
   }
 
@@ -163,6 +165,7 @@
       switchScene(copy.id);
       DA.toast('Scene duplicated');
     } else if (act === 'photo') { pendingBg = 'current'; $('bgInput').click(); }
+    else if (act === 'interact') { state.settings.interact = !state.settings.interact; syncInteractLabel(); scheduleSave(); DA.toast(state.settings.interact ? '🤝 Creatures will play together' : 'Creatures will keep to themselves'); }
     else if (act === 'party') { if (s.creatures.length) DA.World.celebrate(); else DA.toast('Add a creature first!'); }
     else if (act === 'clear') {
       if (!s.creatures.length) { DA.toast('There are no creatures here yet'); return; }
@@ -236,6 +239,7 @@
     $('cpFlip').addEventListener('click', () => { const c = sel(); if (c) { c.facing = c.facing === 'right' ? 'left' : 'right'; scheduleSave(); } });
     $('cpCopy').addEventListener('click', () => { const c = sel(); if (c) DA.World.select(DA.World.duplicate(c)); });
     $('cpFront').addEventListener('click', () => { const c = sel(); if (c) DA.World.bringToFront(c); });
+    $('cpTrick').addEventListener('click', () => { const c = sel(); if (c) DA.World.trick(c); });
     $('cpSave').addEventListener('click', () => { const c = sel(); if (c) DA.saveDataURL(c.sprite, safeName(c.name || 'creature') + '.png'); });
     $('cpDelete').addEventListener('click', deleteSelected);
     $('cpMoveTo').addEventListener('change', (e) => {
@@ -336,7 +340,7 @@
       const res = DA.Pad.exportCreature();
       if (!res) { DA.toast('Draw something first! 🎨'); return; }
       const tpl = res.template ? DA.TEMPLATES.find((t) => t.id === res.template) : null;
-      bringToLife(res.canvas, { name: res.name, kind: tpl ? tpl.cat : null });
+      bringToLife(res.canvas, { name: res.name, kind: tpl ? tpl.cat : null, move: tpl ? tpl.move : null, speed: tpl && tpl.speed });
       DA.Pad.reset();
       DA.closeModal('drawModal');
     });
@@ -389,14 +393,26 @@
     const view = $('phView'), hints = $('phHints');
     const hctx = hints.getContext('2d', { willReadFrequently: true });
 
-    $('photoInput').addEventListener('change', async (e) => {
+    async function onPhotoInput(e) {
       const file = e.target.files && e.target.files[0];
       e.target.value = '';
-      if (!file) return;
+      if (file) openPhoto(file, file.name);
+    }
+    $('photoInput').addEventListener('change', onPhotoInput);
+    $('cameraInput').addEventListener('change', onPhotoInput);
+
+    /** Open the cut-out editor for a File/Blob, data URL or canvas. */
+    DA.openPhoto = openPhoto;
+    async function openPhoto(source, name) {
       try {
-        const img = await DA.loadImage(await DA.readFileAsDataURL(file));
-        const fs = Math.min(1, 640 / Math.max(img.naturalWidth, img.naturalHeight));
-        PH.full = DA.makeCanvas(img.naturalWidth * fs, img.naturalHeight * fs);
+        let img = source;
+        if (source instanceof Blob) img = await DA.loadImage(await DA.readFileAsDataURL(source));
+        else if (typeof source === 'string') img = await DA.loadImage(source);
+        const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        if (!iw || !ih) throw new Error('empty image');
+        DA.closeModal('photoChooser');
+        const fs = Math.min(1, 640 / Math.max(iw, ih));
+        PH.full = DA.makeCanvas(iw * fs, ih * fs);
         PH.full.getContext('2d').drawImage(img, 0, 0, PH.full.width, PH.full.height);
         const ws = Math.min(1, 300 / Math.max(PH.full.width, PH.full.height));
         PH.work = DA.makeCanvas(PH.full.width * ws, PH.full.height * ws);
@@ -406,14 +422,14 @@
         hints.width = PH.work.width; hints.height = PH.work.height;
         hctx.clearRect(0, 0, hints.width, hints.height);
         PH.undo = [];
-        PH.name = (file.name || 'Photo').replace(/\.[^.]+$/, '').slice(0, 20) || 'Photo';
+        PH.name = String(name || 'Photo').replace(/\.[^.]+$/, '').replace(/^image$/i, 'Photo').slice(0, 20) || 'Photo';
         $('phStrength').value = 50; $('phOff').checked = false; $('phShowOrig').checked = false; $('phFillHoles').checked = true;
         DA.openModal('photoModal');
         requestAnimationFrame(() => { fitPhoto(); recompute(); });
       } catch (err) {
         DA.toast('Sorry, that picture could not be opened');
       }
-    });
+    }
 
     function fitPhoto() {
       const area = $('phArea').getBoundingClientRect();
@@ -518,7 +534,7 @@
       const what = b.dataset.open;
       if (what === 'draw') DA.openModal('drawModal');
       else if (what === 'templates') DA.openModal('templatesModal');
-      else if (what === 'photo') $('photoInput').click();
+      else if (what === 'photo') DA.openModal('photoChooser');
     }));
     document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => DA.closeModal(b.dataset.close)));
     document.querySelectorAll('.modal').forEach((m) => m.addEventListener('pointerdown', (e) => {
@@ -554,6 +570,7 @@
       if (e.key === 'Escape') {
         if (menu.classList.contains('open')) { menu.classList.remove('open'); return; }
         if (top) { DA.closeModal(top); return; }
+        if (overviewOpen()) { closeOverview(); return; }
         DA.World.select(null);
         return;
       }
@@ -587,6 +604,181 @@
     }
   }
 
+
+  /* ================= photo sources: chooser, paste, camera ================= */
+  function setupPhotoSources() {
+    $('pcFile').addEventListener('click', () => $('photoInput').click());
+    $('pcCamera').addEventListener('click', openCamera);
+    $('pcPaste').addEventListener('click', pasteFromClipboard);
+
+    // Ctrl+V / Cmd+V anywhere (except while typing) opens the cut-out editor
+    document.addEventListener('paste', (e) => {
+      const t = e.target;
+      if (t && (/INPUT|TEXTAREA/.test(t.tagName) && t.type !== 'range' && t.type !== 'checkbox' || t.isContentEditable)) return;
+      const items = (e.clipboardData && e.clipboardData.items) || [];
+      for (const it of items) {
+        if (it.kind === 'file' && /^image\//.test(it.type)) {
+          const f = it.getAsFile();
+          if (f) { e.preventDefault(); closeOtherModals(); DA.openPhoto(f, 'Pasted'); return; }
+        }
+      }
+      const files = (e.clipboardData && e.clipboardData.files) || [];
+      if (files[0] && /^image\//.test(files[0].type)) { e.preventDefault(); closeOtherModals(); DA.openPhoto(files[0], 'Pasted'); return; }
+      if (!DA.topModal()) DA.toast('There is no picture on the clipboard – copy an image first');
+    });
+  }
+
+  function closeOtherModals() {
+    ['photoChooser', 'templatesModal', 'sceneModal', 'helpModal', 'cameraModal'].forEach((id) => DA.closeModal(id));
+  }
+
+  async function pasteFromClipboard() {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) throw new Error('unsupported');
+      const items = await navigator.clipboard.read();
+      for (const it of items) {
+        const type = it.types.find((tp) => /^image\//.test(tp));
+        if (type) { DA.openPhoto(await it.getType(type), 'Pasted'); return; }
+      }
+      DA.toast('No picture on the clipboard – copy an image first');
+    } catch (e) {
+      DA.toast('Press Ctrl+V (or long-press → Paste) to paste your picture', 3200);
+    }
+  }
+
+  /* camera */
+  const CAM = { stream: null, facing: 'environment', timer: false, busy: false };
+  async function openCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('cameraInput').click(); // fall back to the phone's own camera app
+      return;
+    }
+    DA.closeModal('photoChooser');
+    DA.openModal('cameraModal');
+    await startStream();
+  }
+  async function startStream() {
+    stopStream();
+    const v = $('camVideo');
+    $('camMsg').textContent = 'Starting camera…';
+    $('camShoot').disabled = true;
+    try {
+      CAM.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: CAM.facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+      v.srcObject = CAM.stream;
+      const track = CAM.stream.getVideoTracks()[0];
+      const set = track && track.getSettings ? track.getSettings() : {};
+      v.classList.toggle('mirror', set.facingMode === 'user' || (!set.facingMode && CAM.facing === 'user'));
+      await v.play().catch(() => {});
+      $('camMsg').textContent = '';
+      $('camShoot').disabled = false;
+      const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+      $('camSwitch').style.display = devices.filter((d) => d.kind === 'videoinput').length > 1 ? '' : 'none';
+    } catch (e) {
+      const denied = e && /NotAllowed|Permission|Security/i.test(e.name || e.message);
+      $('camMsg').textContent = denied
+        ? 'Camera permission was blocked. Allow the camera in your browser or phone settings, or use “Choose a picture”.'
+        : 'No camera was found. You can still choose a picture instead.';
+    }
+  }
+  function stopStream() {
+    if (CAM.stream) CAM.stream.getTracks().forEach((t) => t.stop());
+    CAM.stream = null;
+    const v = $('camVideo'); if (v) v.srcObject = null;
+  }
+  async function shoot() {
+    if (CAM.busy || !CAM.stream) return;
+    const v = $('camVideo');
+    if (!v.videoWidth) return;
+    CAM.busy = true;
+    if (CAM.timer) {
+      const area = document.querySelector('.cam-area');
+      for (let n = 3; n > 0; n--) {
+        const el = document.createElement('div'); el.className = 'cam-count'; el.textContent = n; area.appendChild(el);
+        await new Promise((r) => setTimeout(r, 900)); el.remove();
+        if (!CAM.stream) { CAM.busy = false; return; }
+      }
+    }
+    const f = $('camFlash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+    const c = DA.makeCanvas(v.videoWidth, v.videoHeight);
+    const cx = c.getContext('2d');
+    if (v.classList.contains('mirror')) { cx.translate(c.width, 0); cx.scale(-1, 1); }
+    cx.drawImage(v, 0, 0);
+    CAM.busy = false;
+    DA.closeModal('cameraModal');
+    DA.openPhoto(c, 'Snapshot');
+  }
+  function setupCamera() {
+    $('camShoot').addEventListener('click', shoot);
+    $('camSwitch').addEventListener('click', () => { CAM.facing = CAM.facing === 'user' ? 'environment' : 'user'; startStream(); });
+    $('camTimer').addEventListener('click', () => { CAM.timer = !CAM.timer; $('camTimer').classList.toggle('btn-primary', CAM.timer); $('camTimer').classList.toggle('btn-ghost', !CAM.timer); });
+    $('cameraModal').addEventListener('modal-close', stopStream);
+    document.addEventListener('visibilitychange', () => { if (document.hidden && CAM.stream) DA.closeModal('cameraModal'); });
+  }
+
+  /* ================= all worlds overview ================= */
+  const OV = { tiles: [], ro: null };
+  function openOverview() {
+    DA.World.select(null);
+    const grid = $('ovGrid');
+    grid.innerHTML = '';
+    OV.tiles = [];
+    const n = state.scenes.length + 1;
+    const r = $('stage').getBoundingClientRect();
+    const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt(n * (r.width / Math.max(1, r.height)) * 0.75)) || 1));
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    const tdpr = Math.min(1.5, window.devicePixelRatio || 1);
+    OV.ro = window.ResizeObserver ? new ResizeObserver((entries) => entries.forEach((en) => sizeTile(en.target._tile))) : null;
+    function sizeTile(t) {
+      if (!t) return;
+      const b = t.el.getBoundingClientRect();
+      t.w = b.width; t.h = b.height; t.dpr = tdpr;
+      t.canvas.width = Math.max(1, Math.round(b.width * tdpr)); t.canvas.height = Math.max(1, Math.round(b.height * tdpr));
+    }
+    state.scenes.forEach((s) => {
+      const el = document.createElement('button');
+      el.className = 'ov-tile' + (s.id === state.current ? ' current' : '');
+      const cv = document.createElement('canvas');
+      el.appendChild(cv);
+      const env = DA.ENVIRONMENTS[s.type] || {};
+      const lab = document.createElement('div');
+      lab.className = 'ov-label';
+      lab.innerHTML = `<span>${env.icon || '🌍'}</span><span class="nm"></span><span class="count">${s.creatures.length}</span>`;
+      lab.querySelector('.nm').textContent = s.name;
+      el.appendChild(lab);
+      el.setAttribute('aria-label', `Open ${s.name}`);
+      el.addEventListener('click', () => { closeOverview(); if (s.id !== state.current) switchScene(s.id); });
+      grid.appendChild(el);
+      DA.Env.prepare(s);
+      const t = { scene: s, el, canvas: cv, ctx: cv.getContext('2d'), w: 0, h: 0, dpr: tdpr };
+      el._tile = t;
+      OV.tiles.push(t);
+      if (OV.ro) OV.ro.observe(el);
+    });
+    const add = document.createElement('button');
+    add.className = 'ov-tile ov-add';
+    add.innerHTML = '<span>＋</span>New world';
+    add.addEventListener('click', () => { closeOverview(); DA.openModal('sceneModal'); });
+    grid.appendChild(add);
+    $('ovCount').textContent = `· ${state.scenes.length} world${state.scenes.length === 1 ? '' : 's'}, ${state.scenes.reduce((a, s) => a + s.creatures.length, 0)} creatures`;
+    $('overview').classList.add('open');
+    $('emptyState').classList.remove('show');
+    requestAnimationFrame(() => { OV.tiles.forEach(sizeTile); DA.World.setOverview(OV.tiles); });
+  }
+  function closeOverview() {
+    if (!$('overview').classList.contains('open')) return;
+    $('overview').classList.remove('open');
+    if (OV.ro) OV.ro.disconnect();
+    OV.tiles = [];
+    DA.World.setOverview(null);
+    updateEmpty();
+  }
+  const overviewOpen = () => $('overview').classList.contains('open');
+
+  function syncInteractLabel() {
+    $('menuInteract').textContent = '🤝 Creatures play together: ' + (state.settings.interact ? 'On' : 'Off');
+    DA.World.setInteract(state.settings.interact);
+  }
+
   /* ================= start ================= */
   async function start() {
     DA.World.init($('world'));
@@ -596,10 +788,15 @@
     setupPad();
     setupTemplates();
     setupPhoto();
+    setupPhotoSources();
+    setupCamera();
     setupUI();
+    $('overviewBtn').addEventListener('click', () => (overviewOpen() ? closeOverview() : openOverview()));
+    $('ovClose').addEventListener('click', closeOverview);
     buildEnvGrid();
     await load();
     switchScene(state.current);
+    syncInteractLabel();
     window.addEventListener('pagehide', () => DA.storage.set('state', serialise()));
     document.addEventListener('visibilitychange', () => { if (document.hidden) DA.storage.set('state', serialise()); });
 
@@ -623,6 +820,7 @@
         if (menu.classList.contains('open')) { menu.classList.remove('open'); return; }
         const top = DA.topModal();
         if (top) { DA.closeModal(top); return; }
+        if (overviewOpen()) { closeOverview(); return; }
         if (DA.World.selected) { DA.World.select(null); return; }
         DA.storage.set('state', serialise()).finally(() => AppPlugin.exitApp());
       });

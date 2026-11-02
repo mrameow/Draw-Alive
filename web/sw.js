@@ -1,5 +1,5 @@
 /* Draw Alive service worker – makes the web app work offline. */
-const CACHE = 'draw-alive-v1';
+const CACHE = 'draw-alive-v2';
 const ASSETS = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/util.js', 'js/environments.js', 'js/templates.js', 'js/bgremove.js', 'js/drawpad.js', 'js/world.js', 'js/app.js',

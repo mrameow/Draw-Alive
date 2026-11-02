@@ -11,10 +11,14 @@ for (const dir of fs.readdirSync(src)) {
 }
 // adaptive icon background colour
 const bgFile = path.join(res, 'values', 'ic_launcher_background.xml');
-fs.writeFileSync(bgFile, '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#8B63FF</color>\n</resources>\n');
+fs.writeFileSync(bgFile, '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#FFD23F</color>\n</resources>\n');
 // keep the app from restarting when the phone rotates or the keyboard appears
 const manifest = path.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
 let xml = fs.readFileSync(manifest, 'utf8');
+// camera access for the in-app camera (the WebView asks the user at runtime)
+if (!/android.permission.CAMERA/.test(xml)) {
+  xml = xml.replace('</manifest>', '    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n</manifest>');
+}
 if (!/android:hardwareAccelerated/.test(xml)) xml = xml.replace('<application', '<application\n        android:hardwareAccelerated="true"');
 fs.writeFileSync(manifest, xml);
 console.log('Android resources prepared.');
