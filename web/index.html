@@ -23,6 +23,7 @@
       <div class="kid-world kid-only" id="kidWorld"></div>
       <button class="icon-btn kid-only kid-icon" id="kidSound" title="Sounds on/off" aria-label="Sounds on or off">🔊</button>
       <button class="icon-btn kid-only kid-icon" id="kidExit" title="Grown-ups: leave kids mode" aria-label="Leave kids mode (grown-ups)">🔒</button>
+      <button class="icon-btn adult-only kids-btn" id="kidsBtn" title="Kids mode" aria-label="Kids mode">🧒</button>
       <button class="icon-btn adult-only" id="focusBtn" title="Show only the worlds (hide all buttons)" aria-label="Show only the worlds">
         <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
       </button>
@@ -158,18 +159,18 @@
             <button class="seg-btn" data-tool="fill" role="radio" aria-checked="false">🪣<span>Fill</span></button>
             <button class="seg-btn" data-tool="eraser" role="radio" aria-checked="false">🧽<span>Eraser</span></button>
           </div>
-          <div class="kid-sizes kid-only" role="radiogroup" aria-label="Brush size">
+          <div class="kid-sizes" hidden role="radiogroup" aria-label="Brush size">
             <button class="kid-size" data-ksize="8" aria-label="Thin"><i style="--s:10px"></i></button>
             <button class="kid-size active" data-ksize="18" aria-label="Medium"><i style="--s:20px"></i></button>
             <button class="kid-size" data-ksize="36" aria-label="Thick"><i style="--s:34px"></i></button>
           </div>
-          <div class="tool-row size-row adult-only">
+          <div class="tool-row size-row">
             <span class="size-dot" id="sizeDot"></span>
             <input type="range" id="sizeRange" min="2" max="60" value="14" aria-label="Brush size">
           </div>
           <div class="palette" id="palette"></div>
-          <label class="custom-color adult-only">
-            <input type="color" id="customColor" value="#ff6b6b"> <span>Any colour…</span>
+          <label class="custom-color">
+            <input type="color" id="customColor" value="#ff6b6b"> <span>🌈 Any colour…</span>
           </label>
           <label class="switch adult-only" id="stayInsideRow"><input type="checkbox" id="stayInside" checked><span class="track"></span> Stay inside the lines</label>
           <label class="switch adult-only" id="solidInsideRow"><input type="checkbox" id="solidInside" checked><span class="track"></span> Fill inside my outline with white</label>

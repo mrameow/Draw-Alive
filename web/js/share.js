@@ -97,6 +97,54 @@
   const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
   const MOTIONS_OK = ['auto', 'swim', 'walk', 'roam', 'hop', 'bounce', 'slither', 'dash', 'fly', 'float'];
 
+  /* ---------------- shared sync helpers (both directions) ---------------- */
+  /** Fingerprint of what we sync (not positions, which each screen animates itself). */
+  function sceneKey(sc) {
+    return JSON.stringify({
+      n: sc.name, t: sc.type, sd: sc.seed, m: sc.motion || null, b: sc.bgImage ? sc.bgImage.length : 0,
+      c: sc.creatures.map((c) => [c.id, c.name, c.kind || null, c.move || null, c.w, c.h, c.scale, c.speed, c.facing, c.motion])
+    });
+  }
+  /** Message for a world. Sprites (big) are only included for creatures the other side does not have yet. */
+  function buildPayload(sc, id, known) {
+    return {
+      id, name: sc.name, type: sc.type, seed: sc.seed, motion: sc.motion || null, bgImage: sc.type === 'custom' ? sc.bgImage : null,
+      creatures: sc.creatures.map((c) => {
+        const o = { id: c.id, name: c.name, kind: c.kind || null, move: c.move || null, w: c.w, h: c.h, scale: c.scale, speed: c.speed, facing: c.facing, motion: c.motion };
+        if (!known.has(c.id)) { o.sprite = c.sprite; o.x = c.x; o.y = c.y; }
+        return o;
+      })
+    };
+  }
+  /** Apply an incoming creature list to a world, keeping existing creatures (and their positions). */
+  function mergeCreatures(sc, list, spriteCache) {
+    const incoming = Array.isArray(list) ? list.slice(0, MAX_CREATURES) : [];
+    const byId = new Map(sc.creatures.map((c) => [c.id, c]));
+    const next = [];
+    incoming.forEach((c) => {
+      if (!c || typeof c !== 'object') return;
+      const cid = str(c.id, 40);
+      if (!cid) return;
+      if (isImg(c.sprite)) spriteCache.set(cid, c.sprite);
+      let cur = byId.get(cid);
+      const sprite = spriteCache.get(cid) || (cur && cur.sprite);
+      if (!sprite) return;
+      if (!cur) cur = { id: cid, x: num(c.x, 0, 1, 0.5), y: num(c.y, 0, 1, 0.5), _new: true };
+      if (cur.sprite !== sprite) { cur.sprite = sprite; cur._img = null; cur._alpha = null; }
+      cur.name = str(c.name, 24) || 'Creature';
+      cur.kind = str(c.kind, 16) || null;
+      cur.move = MOTIONS_OK.includes(c.move) ? c.move : null;
+      cur.w = num(c.w, 1, 4000, 100); cur.h = num(c.h, 1, 4000, 100);
+      cur.scale = num(c.scale, 0.2, 3, 1); cur.speed = num(c.speed, 0, 3, 1);
+      cur.facing = c.facing === 'right' ? 'right' : 'left';
+      cur.motion = MOTIONS_OK.includes(c.motion) ? c.motion : 'auto';
+      next.push(cur);
+    });
+    sc.creatures = next;
+    if (DA.World.selected && DA.World.scene === sc && !next.includes(DA.World.selected)) DA.World.select(null);
+    return incoming.map((c) => c && str(c.id, 40)).filter(Boolean);
+  }
+
   /* ================= HOST ================= */
   async function startHost() {
     if (S.role) return;
@@ -123,7 +171,7 @@
   }
 
   function onGuestConnection(conn) {
-    const g = { conn, name: 'Friend', id: null, scenes: new Set(), sprites: new Map() };
+    const g = { conn, name: 'Friend', id: null, scenes: new Set(), sprites: new Map(), lastKey: new Map(), known: new Set() };
     conn.on('data', (msg) => {
       try { onGuestData(g, msg); } catch (e) { console.warn('Bad message from guest', e); }
     });
@@ -137,7 +185,7 @@
       g.id = str(msg.client, 40).replace(/[^\w-]/g, '') || DA.uid();
       g.name = str(msg.name, 16).trim() || 'Friend';
       const old = S.guests.get(g.id);
-      if (old && old.conn !== g.conn) { g.scenes = old.scenes; g.sprites = old.sprites; try { old.conn.close(); } catch (e) { /* ignore */ } }
+      if (old && old.conn !== g.conn) { g.scenes = old.scenes; g.sprites = old.sprites; g.known = old.known; try { old.conn.close(); } catch (e) { /* ignore */ } }
       S.guests.set(g.id, g);
       g.conn.send({ t: 'welcome', name: 'Main screen' });
       setOnline(g, true);
@@ -194,35 +242,29 @@
     if (type === 'custom' && isImg(data.bgImage) && data.bgImage !== s.bgImage) { s.bgImage = data.bgImage; s._bgImg = null; }
     s.remote = { owner: g.name, guest: g.id, online: true };
 
-    const incoming = Array.isArray(data.creatures) ? data.creatures.slice(0, MAX_CREATURES) : [];
-    const byId = new Map(s.creatures.map((c) => [c.id, c]));
-    const next = [];
-    incoming.forEach((c) => {
-      if (!c || typeof c !== 'object') return;
-      const cid = str(c.id, 40);
-      if (!cid) return;
-      if (isImg(c.sprite)) g.sprites.set(cid, c.sprite);
-      const sprite = g.sprites.get(cid);
-      if (!sprite) return;
-      let cur = byId.get(cid);
-      if (!cur) {
-        cur = { id: cid, x: num(c.x, 0, 1, 0.5), y: num(c.y, 0, 1, 0.5), _new: true };
-      }
-      if (cur.sprite !== sprite) { cur.sprite = sprite; cur._img = null; cur._alpha = null; }
-      cur.name = str(c.name, 24) || 'Creature';
-      cur.kind = str(c.kind, 16) || null;
-      cur.move = MOTIONS_OK.includes(c.move) ? c.move : null;
-      cur.w = num(c.w, 1, 4000, 100); cur.h = num(c.h, 1, 4000, 100);
-      cur.scale = num(c.scale, 0.2, 3, 1); cur.speed = num(c.speed, 0, 3, 1);
-      cur.facing = c.facing === 'right' ? 'right' : 'left';
-      cur.motion = MOTIONS_OK.includes(c.motion) ? c.motion : 'auto';
-      next.push(cur);
-    });
-    s.creatures = next;
-    if (DA.World.selected && DA.World.scene === s && !next.includes(DA.World.selected)) DA.World.select(null);
+    const ids = mergeCreatures(s, data.creatures, g.sprites);
+    ids.forEach((cid) => g.known.add(cid));
+    g.lastKey.set(sid, sceneKey(s)); // what the guest has now – no need to send it back
     DA.App.refresh();
     if (isNew) DA.toast(`📡 ${g.name} shared “${s.name}”`);
     renderHost();
+  }
+
+  /** Main screen edited a shared world → send the change back to the device that owns it. */
+  function hostSendChanges() {
+    const st = DA.App.state;
+    S.guests.forEach((g) => {
+      if (!g.online || !g.conn || !g.conn.open) return;
+      g.scenes.forEach((sid) => {
+        const sc = st.scenes.find((x) => x.id === remoteId(g, sid));
+        if (!sc) return;
+        const key = sceneKey(sc);
+        if (g.lastKey.get(sid) === key) return;
+        try { g.conn.send({ t: 'scene', scene: buildPayload(sc, sid, g.known) }); } catch (e) { return; }
+        g.lastKey.set(sid, key);
+        sc.creatures.forEach((c) => g.known.add(c.id));
+      });
+    });
   }
 
   function removeScene(g, sid, quiet) {
@@ -285,6 +327,7 @@
       renderGuest(); updateBadge();
     });
     conn.on('data', (msg) => {
+      if (msg && msg.t === 'scene') { try { applyFromHost(msg.scene); } catch (e) { console.warn('Bad update from main screen', e); } return; }
       if (msg && msg.t === 'closed') {
         setGuestStatus('The main screen stopped sharing.', 'warn');
         teardown(); renderGuest(); updateBadge();
@@ -310,24 +353,29 @@
 
   function guestConnected() { return S.role === 'guest' && S.conn && S.conn.open; }
 
-  /** Build the message for one of my worlds. Sprites are only sent the first time. */
-  function scenePayload(s) {
-    const creatures = s.creatures.map((c) => {
-      const o = { id: c.id, name: c.name, kind: c.kind || null, move: c.move || null, w: c.w, h: c.h, scale: c.scale, speed: c.speed, facing: c.facing, motion: c.motion };
-      if (!S.sentSprites.has(c.id)) { o.sprite = c.sprite; o.x = c.x; o.y = c.y; }
-      return o;
-    });
-    return { id: s.id, name: s.name, type: s.type, seed: s.seed, motion: s.motion || null, bgImage: s.type === 'custom' ? s.bgImage : null, creatures };
+  function sendScene(sc) {
+    if (!guestConnected()) return;
+    const key = sceneKey(sc);
+    if (S.lastSent.get(sc.id) === key) return;
+    S.conn.send({ t: 'scene', scene: buildPayload(sc, sc.id, S.sentSprites) });
+    S.lastSent.set(sc.id, key);
+    sc.creatures.forEach((c) => S.sentSprites.add(c.id));
   }
 
-  function sendScene(s) {
-    if (!guestConnected()) return;
-    const p = scenePayload(s);
-    const key = JSON.stringify(Object.assign({}, p, { bgImage: p.bgImage ? p.bgImage.length : 0, creatures: p.creatures.map((c) => Object.assign({}, c, { sprite: undefined, x: undefined, y: undefined })) }));
-    if (S.lastSent.get(s.id) === key && !p.creatures.some((c) => c.sprite)) return;
-    S.conn.send({ t: 'scene', scene: p });
-    S.lastSent.set(s.id, key);
-    s.creatures.forEach((c) => S.sentSprites.add(c.id));
+  /** The main screen changed one of my shared worlds → apply it here. */
+  function applyFromHost(data) {
+    if (!data || typeof data !== 'object') return;
+    const id = str(data.id, 60);
+    if (!S.shared.has(id)) return;
+    const sc = DA.App.state.scenes.find((x) => x.id === id && !x.remote);
+    if (!sc) return;
+    const before = sc.creatures.length;
+    if (typeof data.name === 'string' && data.name.trim()) sc.name = str(data.name, 28);
+    const ids = mergeCreatures(sc, data.creatures, S.hostSprites || (S.hostSprites = new Map()));
+    ids.forEach((cid) => S.sentSprites.add(cid));
+    S.lastSent.set(sc.id, sceneKey(sc)); // already in sync – don't echo it back
+    DA.App.refresh();
+    if (sc.creatures.length > before && DA.Sound) DA.Sound.play('magic');
   }
 
   function sendAll() {
@@ -486,6 +534,7 @@
     open,
     /** Called by the app whenever anything changes (debounced). */
     localChanged() {
+      if (S.role === 'host') { clearTimeout(S.sendTimer); S.sendTimer = setTimeout(hostSendChanges, 400); return; }
       if (S.role !== 'guest' || !S.shared.size) return;
       clearTimeout(S.sendTimer);
       S.sendTimer = setTimeout(sendAll, 500);

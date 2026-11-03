@@ -947,6 +947,7 @@
     DA.World.on('tap', () => DA.Sound.play('boing'));
     document.querySelector('.dock').addEventListener('click', (e) => { if (isKids() && e.target.closest('.dock-btn')) DA.Sound.play('pop'); });
     // only worlds
+    $('kidsBtn').addEventListener('click', () => setKids(true));
     $('focusBtn').addEventListener('click', () => setFocus(true));
     $('ovFocus').addEventListener('click', () => setFocus(true));
     $('focusExit').addEventListener('click', () => setFocus(false));

@@ -80,9 +80,33 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await host.waitForFunction(() => DA.App.state.scenes.some((s) => s.remote && s.creatures.some((c) => c.scale === 2)), null, { timeout: 8000 }).catch(() => {});
     check(await host.evaluate(() => DA.App.state.scenes.some((s) => s.remote && s.creatures.some((c) => c.scale === 2))), 'edits sync live');
 
-    // host looks at everything
+    // ---- the other way: main screen edits the shared world → guest device updates ----
     await host.click('[data-close=shareModal]');
     await host.click('.tab.remote');
+    await host.waitForTimeout(300);
+    await host.click('.dock [data-open=templates]');
+    await host.click('.tpl-card:has-text("Crab")');
+    await host.waitForTimeout(300);
+    await host.click('#padAnimate');
+    await guest.waitForFunction(() => DA.App.currentScene().creatures.length === 3, null, { timeout: 8000 }).catch(() => {});
+    check(await guest.evaluate(() => DA.App.currentScene().creatures.length) === 3, 'creature added on the main screen appears on the guest device');
+    await host.evaluate(() => { const s = DA.App.currentScene(); s.creatures[1].scale = 1.7; DA.World.changed(); });
+    await guest.waitForFunction(() => DA.App.currentScene().creatures.some((c) => c.scale === 1.7), null, { timeout: 8000 }).catch(() => {});
+    check(await guest.evaluate(() => DA.App.currentScene().creatures.some((c) => c.scale === 1.7)), 'edit on the main screen syncs to the guest');
+    await host.evaluate(() => { const s = DA.App.currentScene(); DA.World.select(s.creatures[2]); });
+    await host.click('#cpDelete');
+    await guest.waitForFunction(() => DA.App.currentScene().creatures.length === 2, null, { timeout: 8000 }).catch(() => {});
+    check(await guest.evaluate(() => DA.App.currentScene().creatures.length) === 2, 'delete on the main screen syncs to the guest');
+    // no ping-pong: once in sync, nothing keeps bouncing between the devices
+    const counter = () => { window.__r = 0; const f = DA.App.refresh; DA.App.refresh = function () { window.__r++; return f.apply(this, arguments); }; };
+    await host.evaluate(counter); await guest.evaluate(counter);
+    await host.waitForTimeout(3000);
+    const bounces = (await host.evaluate(() => window.__r)) + (await guest.evaluate(() => window.__r));
+    check(bounces === 0, 'no endless back-and-forth once in sync (' + bounces + ' updates while idle)');
+    const same = await host.evaluate(() => DA.App.currentScene().creatures.map((c) => c.id + ':' + c.scale).join()) === await guest.evaluate(() => DA.App.currentScene().creatures.map((c) => c.id + ':' + c.scale).join());
+    check(same, 'both screens show the same creatures');
+
+    // host looks at everything
     await host.waitForTimeout(1200);
     await host.screenshot({ path: `${OUT}/share-3-host-tab.png` });
     await host.click('#overviewBtn');

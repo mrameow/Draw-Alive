@@ -236,8 +236,8 @@ async function run(viewport, tag) {
   await page.keyboard.press('Escape');
 
   // ---- kids mode ----
-  await page.click('#sceneMenuBtn');
-  await page.click('[data-act=kids]');
+  check(await page.isVisible('#kidsBtn'), 'kids mode button is in the top bar');
+  await page.click('#kidsBtn');
   await page.waitForTimeout(400);
   check(await page.evaluate(() => document.body.classList.contains('kids')), 'kids mode turns on');
   const kidButtons = await page.$$eval('.dock .dock-btn', (bs) => bs.filter((b) => b.offsetParent).map((b) => b.textContent.trim().replace(/\s+/g, ' ')));
@@ -246,7 +246,9 @@ async function run(viewport, tag) {
   await page.click('.dock [data-open=templates]');
   await page.click('.tpl-card:has-text("Fish")');
   await page.waitForTimeout(300);
-  check(!(await page.isVisible('#sizeRange')) && await page.isVisible('.kid-sizes') && !(await page.isVisible('#customColor')), 'kids drawing panel is simplified');
+  check(await page.isVisible('#sizeRange') && await page.isVisible('.custom-color') && !(await page.isVisible('#padRedo')) && !(await page.isVisible('#padTemplatesBtn')), 'kids drawing panel has brush size + any colour, but stays simple');
+  await page.evaluate(() => { const r = document.getElementById('sizeRange'); r.value = 40; r.dispatchEvent(new Event('input')); });
+  check(await page.evaluate(() => DA.Pad.state.size) === 40, 'kids can change the brush size');
   await page.screenshot({ path: `${OUT}/${tag}-15-kids-pad.png` });
   await page.click('#padAnimate');
   await page.waitForTimeout(400);

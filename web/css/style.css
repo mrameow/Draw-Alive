@@ -384,6 +384,12 @@ kbd { background: #f1eeff; border-radius: 6px; padding: 1px 6px; font-size: 12px
 .pad-actions { position: sticky; bottom: 0; background: var(--card); padding-top: 6px; z-index: 1; }
 
 /* ---------- mode switches ---------- */
+.kids-btn { font-size: 20px; }
+body.kids .size-row { padding: 10px 14px; }
+body.kids #sizeRange { height: 34px; }
+body.kids .size-dot { width: 44px; height: 44px; }
+body.kids .custom-color { background: linear-gradient(90deg, #ffe3e3, #fff3bf, #d3f9d8, #d0ebff, #e5dbff); border-radius: 16px; padding: 10px 12px; color: var(--ink); font-size: 16px; font-weight: 900; }
+body.kids .custom-color input { width: 54px; height: 40px; }
 body.kids .adult-only { display: none !important; }
 body:not(.kids) .kid-only { display: none !important; }
 
