@@ -1,8 +1,9 @@
 /* Draw Alive service worker – makes the web app work offline. */
-const CACHE = 'draw-alive-v2';
+const CACHE = 'draw-alive-v3';
 const ASSETS = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
-  'js/util.js', 'js/environments.js', 'js/templates.js', 'js/bgremove.js', 'js/drawpad.js', 'js/world.js', 'js/app.js',
+  'js/util.js', 'js/environments.js', 'js/templates.js', 'js/bgremove.js', 'js/drawpad.js', 'js/world.js', 'js/share.js', 'js/app.js',
+  'vendor/peerjs.min.js', 'vendor/qrcode.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'
 ];
 self.addEventListener('install', (e) => {

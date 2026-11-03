@@ -14,9 +14,9 @@
   function serialise() {
     return {
       version: 1,
-      current: state.current,
+      current: (state.scenes.find((s) => s.id === state.current && !s.remote) || state.scenes.find((s) => !s.remote) || {}).id || null,
       settings: state.settings,
-      scenes: state.scenes.map((s) => ({
+      scenes: state.scenes.filter((s) => !s.remote).map((s) => ({
         id: s.id, name: s.name, type: s.type, seed: s.seed, bgImage: s.bgImage || null, motion: s.motion || null,
         creatures: s.creatures.map((c) => ({
           id: c.id, name: c.name, kind: c.kind || null, move: c.move || null, sprite: c.sprite, w: c.w, h: c.h,
@@ -26,6 +26,7 @@
     };
   }
   function scheduleSave() {
+    if (DA.Share) DA.Share.localChanged();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       const ok = await DA.storage.set('state', serialise());
@@ -71,11 +72,11 @@
     box.innerHTML = '';
     state.scenes.forEach((s) => {
       const b = document.createElement('button');
-      b.className = 'tab' + (s.id === state.current ? ' active' : '');
-      b.title = 'Double-click to rename';
+      b.className = 'tab' + (s.id === state.current ? ' active' : '') + (s.remote ? ' remote' + (s.remote.online ? '' : ' offline') : '');
+      b.title = s.remote ? `Shared live by ${s.remote.owner}${s.remote.online ? '' : ' (offline)'}` : 'Double-click to rename';
       const env = DA.ENVIRONMENTS[s.type] || {};
-      b.innerHTML = `<span>${env.icon || '🌍'}</span><span class="tab-name"></span><span class="count">${s.creatures.length}</span>`;
-      b.querySelector('.tab-name').textContent = s.name;
+      b.innerHTML = `<span>${s.remote ? '📡' : env.icon || '🌍'}</span><span class="tab-name"></span><span class="count">${s.creatures.length}</span>`;
+      b.querySelector('.tab-name').textContent = s.remote ? `${s.remote.owner} · ${s.name}` : s.name;
       b.addEventListener('click', () => { if (s.id !== state.current) switchScene(s.id); });
       b.addEventListener('dblclick', () => renameScene(s));
       box.appendChild(b);
@@ -158,12 +159,16 @@
     const s = currentScene();
     if (act === 'rename') renameScene(s);
     else if (act === 'duplicate') {
-      const copy = JSON.parse(JSON.stringify(serialise().scenes.find((x) => x.id === s.id)));
-      copy.id = DA.uid(); copy.name = s.name + ' copy';
-      copy.creatures.forEach((c) => { c.id = DA.uid(); });
+      const copy = {
+        id: DA.uid(), name: (s.remote ? s.remote.owner + ' · ' : '') + s.name + ' copy', type: s.type, seed: s.seed, bgImage: s.bgImage || null, motion: s.motion || null,
+        creatures: s.creatures.map((c) => ({
+          id: DA.uid(), name: c.name, kind: c.kind || null, move: c.move || null, sprite: c.sprite, w: c.w, h: c.h,
+          scale: c.scale, speed: c.speed, facing: c.facing, motion: c.motion, x: c.x, y: c.y
+        }))
+      };
       state.scenes.splice(state.scenes.indexOf(s) + 1, 0, copy);
       switchScene(copy.id);
-      DA.toast('Scene duplicated');
+      DA.toast(s.remote ? 'Saved a copy of the shared world on this device' : 'Scene duplicated');
     } else if (act === 'photo') { pendingBg = 'current'; $('bgInput').click(); }
     else if (act === 'interact') { state.settings.interact = !state.settings.interact; syncInteractLabel(); scheduleSave(); DA.toast(state.settings.interact ? '🤝 Creatures will play together' : 'Creatures will keep to themselves'); }
     else if (act === 'party') { if (s.creatures.length) DA.World.celebrate(); else DA.toast('Add a creature first!'); }
@@ -177,7 +182,7 @@
         snack('Creatures removed', () => { s.creatures.push(...old); onWorldChange(); });
       }
     } else if (act === 'delete') {
-      if (state.scenes.length === 1) { DA.toast('You need at least one environment'); return; }
+      if (state.scenes.filter((x) => !x.remote).length === 1 && !s.remote) { DA.toast('You need at least one environment'); return; }
       if (await DA.confirm('Delete this environment?', `“${s.name}” and its ${s.creatures.length} creature(s) will be deleted. Your other environments stay.`, 'Delete', true)) {
         const i = state.scenes.indexOf(s);
         state.scenes.splice(i, 1);
@@ -718,6 +723,7 @@
   /* ================= all worlds overview ================= */
   const OV = { tiles: [], ro: null };
   function openOverview() {
+    if (OV.ro) OV.ro.disconnect();
     DA.World.select(null);
     const grid = $('ovGrid');
     grid.innerHTML = '';
@@ -743,7 +749,7 @@
       const lab = document.createElement('div');
       lab.className = 'ov-label';
       lab.innerHTML = `<span>${env.icon || '🌍'}</span><span class="nm"></span><span class="count">${s.creatures.length}</span>`;
-      lab.querySelector('.nm').textContent = s.name;
+      lab.querySelector('.nm').textContent = s.remote ? `📡 ${s.remote.owner} · ${s.name}` : s.name;
       el.appendChild(lab);
       el.setAttribute('aria-label', `Open ${s.name}`);
       el.addEventListener('click', () => { closeOverview(); if (s.id !== state.current) switchScene(s.id); });
@@ -791,6 +797,7 @@
     setupPhotoSources();
     setupCamera();
     setupUI();
+    DA.Share.init();
     $('overviewBtn').addEventListener('click', () => (overviewOpen() ? closeOverview() : openOverview()));
     $('ovClose').addEventListener('click', closeOverview);
     buildEnvGrid();
@@ -829,7 +836,14 @@
   }
 
   // expose for tests / debugging
-  DA.App = { get state() { return state; }, serialise, currentScene };
+  DA.App = {
+    get state() { return state; }, serialise, currentScene, switchScene, openOverview,
+    /** Re-render after outside changes (e.g. a shared world arrived). */
+    refresh() {
+      onWorldChange();
+      if ($('overview').classList.contains('open') && OV.tiles.length !== state.scenes.length) openOverview();
+    }
+  };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();

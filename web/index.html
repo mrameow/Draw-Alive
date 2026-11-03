@@ -104,6 +104,7 @@
       <button class="dock-btn mint" data-open="photo"><span class="di">📷</span><span>Photo</span></button>
       <span class="dock-sep"></span>
       <button class="dock-btn" id="snapBtn"><span class="di">🖼️</span><span>Save picture</span></button>
+      <button class="dock-btn share" id="shareBtn"><span class="di">📡</span><span class="lbl">Share</span></button>
       <button class="dock-btn" id="pauseBtn"><span class="di" id="pauseIcon">⏸️</span><span id="pauseLabel">Pause</span></button>
       <button class="dock-btn" id="fullBtn"><span class="di">⛶</span><span>Full screen</span></button>
       <button class="dock-btn" id="helpBtn"><span class="di">❓</span><span>Help</span></button>
@@ -273,6 +274,61 @@
     </div>
   </div>
 
+  <!-- ===== Share between devices ===== -->
+  <div class="modal" id="shareModal" aria-hidden="true" role="dialog" aria-labelledby="shareTitle">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="shareTitle">📡 Share worlds between devices</h3>
+        <button class="icon-btn modal-close" data-close="shareModal" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="tool-row seg" role="tablist">
+        <button class="seg-btn active" data-shtab="host" role="tab" aria-selected="true">🖥️<span>Be the main screen</span></button>
+        <button class="seg-btn" data-shtab="guest" role="tab" aria-selected="false">📱<span>Send my world</span></button>
+      </div>
+
+      <section id="shHost" class="sh-section">
+        <div id="shHostIdle">
+          <p>Turn this device into the <b>main screen</b>. Friends' worlds appear here as new 📡 tabs and keep moving live while they draw on their own devices.</p>
+          <button class="btn btn-primary btn-big" id="shStart">🖥️ Start main screen</button>
+        </div>
+        <div id="shHostLive" hidden>
+          <div class="sh-room">
+            <div class="sh-qr" id="shQR" aria-label="QR code to join"></div>
+            <div class="sh-info">
+              <small>Room code</small>
+              <div class="sh-code" id="shCode">······</div>
+              <p class="small muted">On the other device open Draw Alive → <b>📡 Share → Send my world</b> and type this code – or just scan the QR code.</p>
+              <div class="sh-link"><span id="shLink"></span> <button class="chip" id="shCopy">🔗 Copy link</button></div>
+            </div>
+          </div>
+          <p class="sh-status warn" id="shHostStatus"></p>
+          <h4 class="sh-h">Connected devices <span class="muted" id="shCount"></span></h4>
+          <ul class="sh-guests" id="shGuests"></ul>
+          <div class="row-end">
+            <button class="btn btn-ghost" id="shStop">⏹ Stop</button>
+            <button class="btn btn-primary" id="shShowAll">🗺️ Show all worlds</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="shGuest" class="sh-section" hidden>
+        <div class="sh-form">
+          <label class="field">Your name <input class="text-input" id="shName" maxlength="16" placeholder="e.g. Aisyah" autocomplete="nickname"></label>
+          <label class="field">Main screen code <input class="text-input sh-code-input" id="shJoinCode" maxlength="6" placeholder="ABC123" autocapitalize="characters" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <div class="field">Worlds to send
+          <div class="sh-worlds" id="shWorlds"></div>
+        </div>
+        <p class="sh-status" id="shStatus"></p>
+        <div class="row-end">
+          <button class="btn btn-ghost" id="shLeave" hidden>⏹ Stop sharing</button>
+          <button class="btn btn-primary btn-big" id="shJoin">📡 Connect</button>
+        </div>
+      </section>
+      <p class="muted small sh-note">Worlds travel directly between the devices. Both need internet (any Wi-Fi or mobile data). Nothing is stored online, and shared worlds disappear from the main screen when it closes.</p>
+    </div>
+  </div>
+
   <!-- ===== Help ===== -->
   <div class="modal" id="helpModal" aria-hidden="true" role="dialog" aria-labelledby="helpTitle">
     <div class="sheet">
@@ -288,6 +344,7 @@
         <li><b>Drag</b> creatures to move them. <b>Tap</b> one to change size, speed, how it moves (walk, hop, bounce, dash, slither, swim, fly…), make it do a trick, flip, copy or delete it.</li>
         <li>Creatures do little tricks by themselves and sometimes <b>play together</b> – they wave, chase, dance and high-five.</li>
         <li><b>▦</b> at the top shows <b>all your worlds at once</b>. Tap one to jump into it.</li>
+        <li><b>📡 Share</b>: make one device the <b>main screen</b>, then other phones, tablets or computers join with its code (or QR code) and send their worlds to it – live.</li>
         <li><b>🖼️ Save picture</b> keeps a snapshot of your world. Everything is saved automatically on this device.</li>
       </ol>
       <p class="muted small">Shortcuts: <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo · <kbd>Del</kbd> delete creature · <kbd>Space</kbd> pause · <kbd>Esc</kbd> close</p>
@@ -325,6 +382,7 @@
   <script src="js/bgremove.js"></script>
   <script src="js/drawpad.js"></script>
   <script src="js/world.js"></script>
+  <script src="js/share.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

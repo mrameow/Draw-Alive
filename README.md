@@ -17,6 +17,7 @@ no accounts, no servers, and nothing leaves your device.
 | 🌍 **Multiple environments** | 12 worlds: Ocean, Forest, Space, Meadow, Snow, Desert, Jungle, Farm, Sky, City, Candy Land, or **your own photo** as the background. Add as many as you like (even several oceans). Each one keeps its own creatures in its own tab, and adding a new one never deletes the old ones. |
 | 🗺️ **All worlds at once** | The ▦ button shows every world side by side, all animating live. Tap one to jump in. |
 | 🐾 **Living creatures** | 10 movement styles: walk, hop, bounce, dash, slither, roam, swim, fly and float. Animals pick a natural one (frogs hop, snakes slither, bees fly). They do tricks on their own (spin, jump, dance, nap, look around) and **play together**: they wave, chase, dance and high-five, with emoji speech bubbles. This can be switched off in the ⋮ menu. Tap a creature to rename it, resize it, change its speed or movement, flip it, copy it, bring it to the front, save it as a PNG, move it to another world, or delete it (with undo). Drag to move. |
+| 📡 **Share between devices** | Make one device the **main screen** (📡 Share → Be the main screen). It shows a 6-letter code and a QR code. On other phones, tablets or computers, tap 📡 Share → Send my world, type the code (or scan the QR code) and pick which worlds to send. Each world appears on the main screen as a 📡 tab and updates live while its owner draws. Devices connect directly with WebRTC (PeerJS), so there's nothing to install or host. Shared worlds are not saved on the main screen. |
 | 💾 **Saves automatically** | Everything is stored on the device (IndexedDB) and comes back next time. |
 | 🖼️ **Save picture** | Export a snapshot of your world as a PNG (on Android it opens the share sheet). |
 | ✨ Extras | Pause/play, full screen, “make everyone jump” party button, rename/duplicate/delete worlds, keyboard shortcuts, Android back button closes dialogs, works offline as an installable web app. |
@@ -25,6 +26,14 @@ no accounts, no servers, and nothing leaves your device.
 * **Background remover rebuilt.** The old version averaged the 4 corner pixels and deleted every pixel within a fixed colour distance. That fails on gradients, textures, shadows, two-tone backgrounds (wall + table) and white paper. The new one learns the background colours from the whole border (k-means in Lab colour space), flood-fills inwards while stopping at edges, scores each pixel against foreground and background colour models, smooths the result with edge-aware diffusion, then removes specks, fills holes and feathers the edges. On test images the overlap with the true outline (IoU) went from **0.18–0.76** with the old method to **0.98** with the new one.
 * Environments are now separate saved worlds (tabs), not a theme switch that hides creatures.
 * Fixed bugs from the original: uploaded images weren't cropped, so tapping hit the wrong spot; background layouts broke when the window was resized; touch drawing never ended a stroke properly; the colour box redrew pixel by pixel; it loaded remote scripts that only exist on the original host.
+
+## Sharing: how it works and troubleshooting
+
+* Both devices need internet. They can be on different networks (school Wi-Fi and mobile data both work).
+* The free PeerJS service only introduces the devices to each other; the drawings go directly from device to device. On very strict networks PeerJS sends the data through its relay servers instead.
+* Sharing works between all versions: web, Windows app and Android app, in any combination.
+* If a network blocks it completely, try mobile data or a hotspot on one device.
+* To run your own PeerJS server, add `?peerserver=your-host:port` to the app's address (the tests use this).
 
 ## Install
 

@@ -13,19 +13,22 @@
     "dist:win": "electron-builder --win nsis portable --x64",
     "android:add": "cap add android && node scripts/prepare-android.js",
     "android:sync": "cap sync android",
-    "test": "node tests/e2e.js"
+    "test": "node tests/e2e.js && node tests/share.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.0.0",
     "@capacitor/filesystem": "^8.0.0",
-    "@capacitor/share": "^8.0.0"
+    "@capacitor/share": "^8.0.0",
+    "peerjs": "^1.5.5",
+    "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",
     "electron": "^39.0.0",
     "electron-builder": "^26.0.0",
+    "peer": "^1.0.2",
     "playwright": "^1.50.0"
   },
   "build": {
