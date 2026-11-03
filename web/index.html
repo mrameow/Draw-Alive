@@ -20,6 +20,7 @@
         <span class="brand-name">Draw <b>Alive</b></span>
       </div>
       <nav class="tabs adult-only" id="sceneTabs" aria-label="Scenes"></nav>
+      <button class="world-btn adult-only" id="worldBtn" aria-label="Switch world"><span class="wb-icon"></span><span class="wb-name"></span><span class="wb-count"></span><svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></button>
       <div class="kid-world kid-only" id="kidWorld"></div>
       <button class="icon-btn kid-only kid-icon" id="kidSound" title="Sounds on/off" aria-label="Sounds on or off">🔊</button>
       <button class="icon-btn kid-only kid-icon" id="kidExit" title="Grown-ups: leave kids mode" aria-label="Leave kids mode (grown-ups)">🔒</button>
@@ -37,6 +38,16 @@
         <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
       </button>
       <div class="menu" id="sceneMenu" role="menu">
+        <div class="menu-grab mobile-only"></div>
+        <div class="menu-quick mobile-only">
+          <button role="menuitem" data-act="share"><span>📡</span>Share</button>
+          <button role="menuitem" data-act="snap"><span>🖼️</span>Save picture</button>
+          <button role="menuitem" data-act="overview"><span>🗺️</span>All worlds</button>
+          <button role="menuitem" data-act="kids"><span>🧒</span>Kids mode</button>
+          <button role="menuitem" data-act="pause" id="menuPause"><span>⏸️</span>Pause</button>
+          <button role="menuitem" data-act="help"><span>❓</span>Help</button>
+        </div>
+        <div class="menu-label mobile-only">This world</div>
         <button role="menuitem" data-act="rename">✏️ Rename scene</button>
         <button role="menuitem" data-act="duplicate">📑 Duplicate scene</button>
         <button role="menuitem" data-act="photo" id="menuChangePhoto">🖼️ Change background photo</button>
@@ -44,9 +55,10 @@
         <button role="menuitem" data-act="interact" id="menuInteract">🤝 Creatures play together: On</button>
         <button role="menuitem" data-act="clear">🧹 Remove all creatures</button>
         <button role="menuitem" data-act="focus">👁️ Show only the worlds</button>
-        <button role="menuitem" data-act="kids">🧒 Kids mode</button>
+        <button role="menuitem" data-act="kids" class="desktop-only">🧒 Kids mode</button>
         <button role="menuitem" data-act="delete" class="danger">🗑️ Delete scene</button>
       </div>
+      <div class="menu-backdrop" id="menuBackdrop"></div>
     </header>
 
     <!-- ===== World ===== -->
@@ -172,8 +184,10 @@
           <label class="custom-color">
             <input type="color" id="customColor" value="#ff6b6b"> <span>🌈 Any colour…</span>
           </label>
-          <label class="switch adult-only" id="stayInsideRow"><input type="checkbox" id="stayInside" checked><span class="track"></span> Stay inside the lines</label>
-          <label class="switch adult-only" id="solidInsideRow"><input type="checkbox" id="solidInside" checked><span class="track"></span> Fill inside my outline with white</label>
+          <details class="more-opts adult-only" id="padMore"><summary>More options</summary>
+          <label class="switch" id="stayInsideRow"><input type="checkbox" id="stayInside" checked><span class="track"></span> Stay inside the lines</label>
+          <label class="switch" id="solidInsideRow"><input type="checkbox" id="solidInside" checked><span class="track"></span> Fill inside my outline with white</label>
+          </details>
           <div class="pad-actions">
             <button class="btn btn-ghost" id="padClear">🗑️ Clear</button>
             <button class="btn btn-primary btn-big" id="padAnimate">✨ Bring to life!</button>
@@ -224,14 +238,31 @@
           <label class="field adult-only">Background removal strength
             <input type="range" id="phStrength" min="0" max="100" value="50">
           </label>
-          <label class="switch adult-only"><input type="checkbox" id="phFillHoles" checked><span class="track"></span> Keep areas inside the outline</label>
-          <label class="switch adult-only"><input type="checkbox" id="phOff"><span class="track"></span> Keep the whole photo (no cut-out)</label>
-          <label class="switch adult-only"><input type="checkbox" id="phShowOrig"><span class="track"></span> Show original</label>
+          <details class="more-opts adult-only" id="phMore"><summary>More options</summary>
+          <label class="switch"><input type="checkbox" id="phFillHoles" checked><span class="track"></span> Keep areas inside the outline</label>
+          <label class="switch"><input type="checkbox" id="phOff"><span class="track"></span> Keep the whole photo (no cut-out)</label>
+          <label class="switch"><input type="checkbox" id="phShowOrig"><span class="track"></span> Show original</label>
+          </details>
           <div class="pad-actions">
             <button class="btn btn-ghost adult-only" id="phReset">↺ Reset</button>
             <button class="btn btn-primary btn-big" id="phAdd">✨ Bring to life!</button>
           </div>
         </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== World switcher (phones) ===== -->
+  <div class="modal sheet-bottom" id="worldsModal" aria-hidden="true" role="dialog" aria-labelledby="worldsTitle">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="worldsTitle">🌍 Your worlds</h3>
+        <button class="icon-btn modal-close" data-close="worldsModal" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="world-list" id="worldList"></div>
+      <div class="world-actions">
+        <button class="btn btn-ghost" id="wlAll">🗺️ See all at once</button>
+        <button class="btn btn-primary" id="wlNew">＋ New world</button>
       </div>
     </div>
   </div>

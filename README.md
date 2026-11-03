@@ -29,6 +29,10 @@ no accounts, no servers, and nothing leaves your device.
 * Environments are now separate saved worlds (tabs), not a theme switch that hides creatures.
 * Fixed bugs from the original: uploaded images weren't cropped, so tapping hit the wrong spot; background layouts broke when the window was resized; touch drawing never ended a stroke properly; the colour box redrew pixel by pixel; it loaded remote scripts that only exist on the original host.
 
+## On phones
+
+Held upright, the app switches to a simpler layout: the top bar shows the current world (tap it to switch worlds, add one or see them all) and a ⋮ menu that opens from the bottom with Share, Save picture, All worlds, Kids mode, Pause and Help. The bottom bar keeps only Draw, Colour-in and Photo, and the drawing and photo screens fold their extra switches under “More options”.
+
 ## Sharing: how it works and troubleshooting
 
 * Both devices need internet. They can be on different networks (school Wi-Fi and mobile data both work).

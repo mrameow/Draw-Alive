@@ -35,10 +35,33 @@ async function run(viewport, tag) {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   console.log(`\n[${tag}] ${viewport.width}x${viewport.height}`);
+  // UI helpers: phones (upright) use the world switcher + ⋮ sheet, bigger screens use the top bar
+  const phone = viewport.width <= 640;
+  const goWorld = async (name, exact) => {
+    if (!phone) { await page.click(exact ? `.tab:has(.tab-name:text-is("${name}"))` : `.tab:has-text("${name}") >> nth=0`); return; }
+    await page.click('#worldBtn');
+    await page.click(exact ? `.wl-row:has(.nm:text-is("${name}"))` : `.wl-row:has-text("${name}") >> nth=0`);
+    await page.waitForTimeout(150);
+  };
+  const addWorld = async () => {
+    if (!phone) { await page.click('#addSceneBtn'); return; }
+    await page.click('#worldBtn'); await page.click('#wlNew');
+  };
+  const menuAct = async (act, desktopSel) => {
+    if (!phone && desktopSel) { await page.click(desktopSel); return; }
+    await page.click('#sceneMenuBtn'); await page.waitForTimeout(150);
+    await page.click(`#sceneMenu [data-act=${act}]:visible`);
+  };
+
   await page.goto(URL_);
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}/${tag}-1-start.png` });
   check(await page.isVisible('#emptyState'), 'empty state shown for a new world');
+  if (phone) {
+    const dockBtns = await page.$$eval('.dock .dock-btn', (bs) => bs.filter((b) => b.offsetParent).length);
+    const topBtns = await page.$$eval('.topbar button', (bs) => bs.filter((b) => b.offsetParent).length);
+    check(dockBtns === 3 && topBtns === 2, `phone layout is minimal: ${dockBtns} bottom buttons, ${topBtns} top buttons`);
+  }
 
   // ---- freehand drawing ----
   await page.click('.dock [data-open=draw]');
@@ -73,6 +96,7 @@ async function run(viewport, tag) {
   await page.mouse.click(b2.x + b2.width * 0.84, b2.y + b2.height * 0.5);
   // brush scribble that goes far outside the outline – must be cropped away
   await page.click('[data-tool=brush]');
+  if (phone) await page.click('#padMore summary');
   await page.click('#stayInsideRow'); // turn off "stay inside"
   await page.mouse.move(b2.x + 5, b2.y + 5); await page.mouse.down(); await page.mouse.move(b2.x + b2.width * 0.5, b2.y + b2.height * 0.5, { steps: 10 }); await page.mouse.up();
   await page.waitForTimeout(150);
@@ -107,7 +131,7 @@ async function run(viewport, tag) {
 
   // ---- add more environments without losing the old one ----
   for (const env of ['Forest', 'Space', 'Meadow', 'Ocean']) {
-    await page.click('#addSceneBtn');
+    await addWorld();
     await page.waitForTimeout(200);
     if (env === 'Forest') await page.screenshot({ path: `${OUT}/${tag}-7-envs.png` });
     await page.click(`.env-card:has-text("${env}")`);
@@ -117,7 +141,7 @@ async function run(viewport, tag) {
   check(scenes.length === 5 && scenes[0][1] === 4, `5 environments, first still has its creatures: ${JSON.stringify(scenes)}`);
   check(scenes.filter((s) => s[0].startsWith('Ocean')).length === 2, 'same environment type can be added twice');
   // custom photo environment
-  await page.click('#addSceneBtn');
+  await addWorld();
   await page.evaluate(() => { document.querySelector('#customMotion').value = 'walk'; });
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('.env-card:has-text("My Photo")')]);
   await chooser.setFiles({ name: 'bg.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') });
@@ -125,7 +149,7 @@ async function run(viewport, tag) {
   check(await page.evaluate(() => DA.App.currentScene().type) === 'custom', 'custom photo environment');
 
   // put a creature into meadow and take a picture
-  await page.click('.tab:has-text("Meadow")');
+  await goWorld('Meadow');
   await page.click('.dock [data-open=templates]');
   await page.click('.tpl-card:has-text("Bird")');
   await page.waitForTimeout(300);
@@ -138,11 +162,11 @@ async function run(viewport, tag) {
   await page.screenshot({ path: `${OUT}/${tag}-8-meadow.png` });
   check(await page.evaluate(() => DA.World.motionOf(DA.App.currentScene().creatures[0])) === 'fly', 'bird flies in the meadow');
   const dl = page.waitForEvent('download', { timeout: 3000 }).catch(() => null);
-  await page.click('#snapBtn');
+  await menuAct('snap', '#snapBtn');
   check(!!(await dl), 'save picture downloads a PNG');
 
   // ---- paste a picture from the clipboard → cut-out editor opens ----
-  await page.click('.tab:has-text("Ocean") >> nth=0');
+  await goWorld('Ocean', true);
   await page.evaluate(async (b64) => {
     const bin = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
     const dt = new DataTransfer();
@@ -170,7 +194,7 @@ async function run(viewport, tag) {
 
   // ---- new environments ----
   for (const env of ['Desert', 'Jungle', 'Farm', 'Sky', 'City', 'Candy Land']) {
-    await page.click('#addSceneBtn');
+    await addWorld();
     await page.click(`.env-card:has-text("${env}")`);
     await page.waitForTimeout(150);
   }
@@ -183,10 +207,10 @@ async function run(viewport, tag) {
     await page.click('#padAnimate');
     await page.waitForTimeout(150);
   }
-  await page.click('.tab:has-text("Farm")');
+  await goWorld('Farm');
   await page.waitForTimeout(100);
   check(await page.evaluate(() => DA.App.currentScene().creatures.length) === 0, 'farm is empty before');
-  await page.click('.tab:has-text("Candy")');
+  await goWorld('Candy');
   const motions = await page.evaluate(() => DA.App.currentScene().creatures.map((c) => DA.World.motionOf(c)));
   check(JSON.stringify(motions) === JSON.stringify(['hop', 'slither', 'fly', 'walk', 'hop']), 'creatures get their own movement: ' + motions);
   // interactions: speed time up by waiting; at least one bubble / interaction should appear
@@ -196,7 +220,7 @@ async function run(viewport, tag) {
   await page.screenshot({ path: `${OUT}/${tag}-12-candy.png` });
 
   // ---- all worlds at once ----
-  await page.click('#overviewBtn');
+  await menuAct('overview', '#overviewBtn');
   await page.waitForTimeout(1200);
   const tiles = await page.locator('.ov-tile:not(.ov-add)').count();
   check(tiles === 12, `overview shows all ${tiles} worlds`);
@@ -227,22 +251,22 @@ async function run(viewport, tag) {
   await page.waitForTimeout(1000);
   const after = await page.evaluate(() => DA.App.state.scenes.map((s) => s.creatures.length));
   check(after.length === 12 && after[0] === 5, `state restored after reload ${JSON.stringify(after)}`);
-  await page.click('.tab >> nth=0');
+  await goWorld('Ocean', true);
   await page.waitForTimeout(1200);
   await page.screenshot({ path: `${OUT}/${tag}-9-reloaded.png` });
-  await page.click('#helpBtn');
+  await menuAct('help', '#helpBtn');
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/${tag}-10-help.png` });
   await page.keyboard.press('Escape');
 
   // ---- kids mode ----
-  check(await page.isVisible('#kidsBtn'), 'kids mode button is in the top bar');
-  await page.click('#kidsBtn');
+  check(phone || await page.isVisible('#kidsBtn'), 'kids mode button is in the top bar');
+  await menuAct('kids', '#kidsBtn');
   await page.waitForTimeout(400);
   check(await page.evaluate(() => document.body.classList.contains('kids')), 'kids mode turns on');
   const kidButtons = await page.$$eval('.dock .dock-btn', (bs) => bs.filter((b) => b.offsetParent).map((b) => b.textContent.trim().replace(/\s+/g, ' ')));
   check(kidButtons.length === 5, 'kids dock shows only 5 big buttons: ' + kidButtons.join(' | '));
-  check(!(await page.isVisible('#sceneTabs')) && !(await page.isVisible('#addSceneBtn')) && !(await page.isVisible('#overviewBtn')), 'kids cannot see world tabs, add world or overview');
+  check(!(await page.isVisible('#sceneTabs')) && !(await page.isVisible('#addSceneBtn')) && !(await page.isVisible('#overviewBtn')) && !(await page.isVisible('#worldBtn')) && !(await page.isVisible('#sceneMenuBtn')), 'kids cannot see world tabs, world switcher, menu or overview');
   await page.click('.dock [data-open=templates]');
   await page.click('.tpl-card:has-text("Fish")');
   await page.waitForTimeout(300);
@@ -289,7 +313,7 @@ async function run(viewport, tag) {
   await page.fill('#gateInput', String(q2[1] * q2[2]));
   await page.click('#gateOk');
   await page.waitForTimeout(200);
-  check(!(await page.evaluate(() => document.body.classList.contains('kids'))) && await page.isVisible('#sceneTabs'), 'grown-up answer unlocks kids mode');
+  check(!(await page.evaluate(() => document.body.classList.contains('kids'))) && await page.isVisible(phone ? '#worldBtn' : '#sceneTabs'), 'grown-up answer unlocks kids mode');
 
   check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await browser.close();

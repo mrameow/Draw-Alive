@@ -53,7 +53,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await guest.waitForTimeout(300);
     await guest.click('#padAnimate');
     await guest.waitForTimeout(300);
-    await guest.click('#shareBtn');
+    await guest.click('#sceneMenuBtn'); await guest.click('#sceneMenu [data-act=share]:visible');
     await guest.click('[data-shtab=guest]');
     await guest.fill('#shName', 'Aisyah');
     await guest.click('#shJoin');
@@ -120,7 +120,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     check(!saved, 'shared worlds are not stored on the main screen');
 
     // guest stops sharing → world removed from main screen
-    await guest.click('#shareBtn');
+    await guest.click('#sceneMenuBtn'); await guest.click('#sceneMenu [data-act=share]:visible');
     await guest.click('#shLeave');
     await host.waitForFunction(() => !DA.App.state.scenes.some((s) => s.remote), null, { timeout: 8000 }).catch(() => {});
     check(await host.evaluate(() => !DA.App.state.scenes.some((s) => s.remote)), 'when the guest stops, its world leaves the main screen');

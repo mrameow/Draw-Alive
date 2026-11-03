@@ -71,6 +71,7 @@
 
   function renderTabs() {
     if (isKids()) renderKidWorld();
+    renderWorldBtn();
     const box = $('sceneTabs');
     box.innerHTML = '';
     state.scenes.forEach((s) => {
@@ -179,6 +180,11 @@
     } else if (act === 'photo') { pendingBg = 'current'; $('bgInput').click(); }
     else if (act === 'interact') { state.settings.interact = !state.settings.interact; syncInteractLabel(); scheduleSave(); DA.toast(state.settings.interact ? '🤝 Creatures will play together' : 'Creatures will keep to themselves'); }
     else if (act === 'focus') setFocus(true);
+    else if (act === 'share') DA.Share.open();
+    else if (act === 'snap') $('snapBtn').click();
+    else if (act === 'overview') openOverview();
+    else if (act === 'pause') togglePause();
+    else if (act === 'help') DA.openModal('helpModal');
     else if (act === 'kids') setKids(true);
     else if (act === 'party') { if (s.creatures.length) DA.World.celebrate(); else DA.toast('Add a creature first!'); }
     else if (act === 'clear') {
@@ -631,6 +637,48 @@
     DA.World.setPaused(p);
     $('pauseIcon').textContent = p ? '▶️' : '⏸️';
     $('pauseLabel').textContent = p ? 'Play' : 'Pause';
+    $('menuPause').innerHTML = p ? '<span>▶️</span>Play' : '<span>⏸️</span>Pause';
+  }
+
+  /* ================= phones: world button + world switcher sheet ================= */
+  function renderWorldBtn() {
+    const s = currentScene();
+    if (!s) return;
+    const env = DA.ENVIRONMENTS[s.type] || {};
+    const b = $('worldBtn');
+    b.querySelector('.wb-icon').textContent = s.remote ? '📡' : env.icon || '🌍';
+    b.querySelector('.wb-name').textContent = s.remote ? `${s.remote.owner} · ${s.name}` : s.name;
+    b.querySelector('.wb-count').textContent = s.creatures.length;
+    b.title = `${state.scenes.length} world${state.scenes.length === 1 ? '' : 's'} – tap to switch`;
+  }
+  function openWorldList() {
+    const list = $('worldList');
+    list.innerHTML = '';
+    state.scenes.forEach((s) => {
+      const row = document.createElement('button');
+      row.className = 'wl-row' + (s.id === state.current ? ' current' : '') + (s.remote ? ' remote' : '');
+      const cv = DA.makeCanvas(128, 80);
+      try { DA.Env.render(cv.getContext('2d'), s, 128, 80, 3); } catch (e) { /* preview only */ }
+      row.appendChild(cv);
+      const nm = document.createElement('span'); nm.className = 'nm';
+      nm.textContent = s.remote ? `${s.remote.owner} · ${s.name}` : s.name;
+      const ct = document.createElement('span'); ct.className = 'count'; ct.textContent = s.creatures.length;
+      row.append(nm, ct);
+      row.addEventListener('click', () => { DA.closeModal('worldsModal'); if (s.id !== state.current) switchScene(s.id); });
+      list.appendChild(row);
+    });
+    DA.openModal('worldsModal');
+  }
+  function setupPhone() {
+    $('worldBtn').addEventListener('click', openWorldList);
+    $('wlAll').addEventListener('click', () => { DA.closeModal('worldsModal'); openOverview(); });
+    $('wlNew').addEventListener('click', () => { DA.closeModal('worldsModal'); DA.openModal('sceneModal'); });
+    // the ⋮ menu is a bottom sheet on phones: dim the screen behind it
+    const menu = $('sceneMenu'), back = $('menuBackdrop');
+    new MutationObserver(() => back.classList.toggle('show', menu.classList.contains('open'))).observe(menu, { attributes: true, attributeFilter: ['class'] });
+    back.addEventListener('click', () => menu.classList.remove('open'));
+    // "More options" start open on big screens, folded away on phones
+    if (window.matchMedia('(min-width: 641px)').matches) { $('padMore').open = true; $('phMore').open = true; }
   }
 
   async function toggleFullscreen() {
@@ -970,6 +1018,7 @@
     $('overviewBtn').addEventListener('click', () => (overviewOpen() ? closeOverview() : openOverview()));
     $('ovClose').addEventListener('click', closeOverview);
     setupModes();
+    setupPhone();
     buildEnvGrid();
     await load();
     switchScene(state.current);
