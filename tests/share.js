@@ -33,9 +33,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
     await host.click('#shareBtn');
     await host.click('#shStart');
-    await host.waitForFunction(() => /^[A-Z2-9]{6}$/.test(document.getElementById('shCode').textContent), null, { timeout: 10000 });
+    await host.waitForFunction(() => /^[A-Z2-9]{4}$/.test(document.getElementById('shCode').textContent), null, { timeout: 10000 });
     const code = await host.textContent('#shCode');
-    check(/^[A-Z2-9]{6}$/.test(code), 'main screen shows a room code: ' + code);
+    check(/^[A-Z2-9]{4}$/.test(code), 'main screen shows a room code: ' + code);
     check(await host.locator('#shQR svg').count() === 1, 'main screen shows a QR code');
     await host.screenshot({ path: `${OUT}/share-1-host.png` });
 
@@ -102,7 +102,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     check(await host.evaluate(() => !DA.App.state.scenes.some((s) => s.remote)), 'when the guest stops, its world leaves the main screen');
 
     // wrong code gives a clear message
-    await guest.fill('#shJoinCode', 'ZZZZZZ');
+    await guest.fill('#shJoinCode', 'ZZZZ');
     await guest.click('#shJoin');
     await guest.waitForFunction(() => /No main screen/.test(document.getElementById('shStatus').textContent), null, { timeout: 10000 }).catch(() => {});
     check(/No main screen/.test(await guest.textContent('#shStatus')), 'a wrong code shows a friendly message');

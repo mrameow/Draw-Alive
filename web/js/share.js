@@ -61,10 +61,10 @@
 
   function newCode() {
     let c = '';
-    for (let i = 0; i < 6; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    for (let i = 0; i < 4; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
     return c;
   }
-  const cleanCode = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  const cleanCode = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
 
   function clientId() {
     try {
@@ -100,6 +100,7 @@
   /* ================= HOST ================= */
   async function startHost() {
     if (S.role) return;
+    if (DA.App.isKids()) return;
     setHostStatus('Starting…');
     try { await loadLibs(); } catch (e) { setHostStatus('Could not load the sharing tools.'); return; }
     S.role = 'host'; S.active = true;
@@ -251,8 +252,9 @@
   async function joinHost() {
     const code = cleanCode($('shJoinCode').value);
     const name = ($('shName').value || '').trim().slice(0, 16);
-    if (code.length !== 6) { setGuestStatus('Type the 6-letter code shown on the main screen.', 'warn'); $('shJoinCode').focus(); return; }
+    if (code.length !== 4) { setGuestStatus('Type the 4-letter code shown on the main screen.', 'warn'); $('shJoinCode').focus(); return; }
     if (!name) { setGuestStatus('Type your name so the main screen knows who you are.', 'warn'); $('shName').focus(); return; }
+    if (DA.App.isKids()) { S.shared.clear(); S.shared.add(DA.App.currentScene().id); }
     if (!S.shared.size) { setGuestStatus('Pick at least one world to share.', 'warn'); return; }
     saveName(name);
     setGuestStatus('Connecting…');
@@ -279,7 +281,7 @@
       S.sentSprites = new Set(); S.lastSent = new Map();
       conn.send({ t: 'hello', client: clientId(), name: S.myName, app: 1 });
       sendAll();
-      setGuestStatus(`✅ Connected! Your world${S.shared.size > 1 ? 's are' : ' is'} on the main screen. Keep drawing – changes appear live.`, 'ok');
+      setGuestStatus(DA.App.isKids() ? '✅ Yay! Your world is on the big screen!' : `✅ Connected! Your world${S.shared.size > 1 ? 's are' : ' is'} on the main screen. Keep drawing – changes appear live.`, 'ok');
       renderGuest(); updateBadge();
     });
     conn.on('data', (msg) => {
@@ -362,7 +364,7 @@
     $('shHostLive').hidden = !live;
     if (!live) return;
     const ready = S.peer && S.peer.open;
-    $('shCode').textContent = ready ? S.code : '······';
+    $('shCode').textContent = ready ? S.code : '····';
     const link = joinLink(S.code);
     $('shLink').textContent = ready ? link.replace(/^https?:\/\//, '') : '';
     if (ready && window.qrcode && $('shQR').dataset.code !== S.code) {
@@ -411,11 +413,14 @@
   }
 
   function updateBadge() {
-    const btn = $('shareBtn');
+    ['shareBtn', 'kidSendBtn'].forEach((id) => badge($(id), id === 'kidSendBtn'));
+  }
+  function badge(btn, kid) {
     if (!btn) return;
     let label = 'Share', live = false;
     if (S.role === 'host') { const n = [...S.guests.values()].filter((g) => g.online).length; label = n ? `Live · ${n}` : 'Live'; live = true; }
-    else if (S.role === 'guest') { live = guestConnected(); label = live ? 'Sharing' : 'Joining…'; }
+    else if (S.role === 'guest') { live = guestConnected(); label = live ? (kid ? 'On TV!' : 'Sharing') : 'Joining…'; }
+    else if (kid) label = 'Send';
     btn.classList.toggle('live', live);
     btn.querySelector('.lbl').textContent = label;
   }
@@ -432,6 +437,7 @@
 
   function open(tab) {
     DA.openModal('shareModal');
+    if (DA.App.isKids()) tab = 'guest';
     setTab(tab || (S.role === 'guest' ? 'guest' : 'host'));
   }
 
@@ -461,7 +467,7 @@
     // opened from a QR code / link: ?join=CODE
     const params = new URLSearchParams(location.search);
     const join = cleanCode(params.get('join'));
-    if (join.length === 6) {
+    if (join.length === 4) {
       $('shJoinCode').value = join;
       params.delete('join');
       const q = params.toString();

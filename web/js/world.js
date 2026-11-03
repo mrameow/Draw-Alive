@@ -504,7 +504,7 @@
   function onUp() {
     if (!drag) return;
     const c = drag.c, rt = ensureRuntime(c);
-    if (!drag.moved) { rt.hop = 1; if (Math.random() < 0.6) say(c, pick(['😊', '❤️', '😄', '✨', '😝', '🎉']), 1.4); }
+    if (!drag.moved) { rt.hop = 1; if (Math.random() < 0.6) say(c, pick(['😊', '❤️', '😄', '✨', '😝', '🎉']), 1.4); emit('tap', c); }
     else { rt.tx = c.x; rt.ty = c.y; rt.next = time + 1; emit('change'); }
     drag = null;
     canvas.style.cursor = 'default';

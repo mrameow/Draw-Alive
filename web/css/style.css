@@ -297,14 +297,16 @@ kbd { background: #f1eeff; border-radius: 6px; padding: 1px 6px; font-size: 12px
 }
 .overview.open { display: flex; animation: fade .18s ease-out; }
 .ov-head { display: flex; align-items: center; justify-content: space-between; }
-.ov-head h3 { margin: 0; font-size: 18px; }
+.ov-head h3 { margin: 0; font-size: 18px; flex: 1; min-width: 0; }
+.ov-head { gap: 8px; }
+.ov-focus { padding: 8px 12px; font-size: 13px; }
 .ov-head small { color: var(--muted); font-weight: 600; font-size: 13px; }
-.ov-grid { flex: 1; min-height: 0; display: grid; gap: 10px; overflow-y: auto; grid-auto-rows: minmax(140px, 1fr); }
+.ov-grid { flex: 1; min-height: 0; display: grid; gap: 10px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; grid-auto-rows: minmax(140px, 1fr); contain: strict; }
 .ov-tile {
   position: relative; border: 3px solid transparent; border-radius: 16px; overflow: hidden; padding: 0;
-  background: #dcd8f0; box-shadow: var(--shadow-sm); transition: transform .15s, border-color .15s; min-height: 140px;
+  background: #dcd8f0; box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s; min-height: 140px;
 }
-.ov-tile:hover { transform: scale(1.015); border-color: var(--primary); }
+.ov-tile:hover { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(109,94,252,0.25); }
 .ov-tile.current { border-color: var(--primary); }
 .ov-tile canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .ov-label {
@@ -377,6 +379,81 @@ kbd { background: #f1eeff; border-radius: 6px; padding: 1px 6px; font-size: 12px
 .tab.remote.active { background: #ff6b6b; box-shadow: 0 4px 12px rgba(255,107,107,0.35); }
 .tab.remote.offline { opacity: 0.6; }
 
+
+/* keep the main action button reachable when the tool list scrolls */
+.pad-actions { position: sticky; bottom: 0; background: var(--card); padding-top: 6px; z-index: 1; }
+
+/* ---------- mode switches ---------- */
+body.kids .adult-only { display: none !important; }
+body:not(.kids) .kid-only { display: none !important; }
+
+/* ---------- "only worlds" view: hide every control ---------- */
+body.focus .topbar, body.focus .dock, body.focus .hint, body.focus .creature-panel, body.focus .empty,
+body.focus .ov-head, body.focus .ov-add, body.focus .ov-label { display: none !important; }
+body.focus .app { padding: 0; gap: 0; grid-template-rows: 1fr; max-width: none; }
+body.focus .stage { border-radius: 0; box-shadow: none; }
+body.focus .overview { padding: 0; }
+body.focus .ov-grid { gap: 3px; scrollbar-gutter: auto; }
+body.focus .ov-tile { border: 0; border-radius: 0; box-shadow: none; }
+.focus-exit {
+  position: fixed; top: calc(12px + var(--safe-top)); right: 12px; z-index: 60; display: none; align-items: center; gap: 6px;
+  border: none; border-radius: 999px; padding: 9px 14px 9px 11px; background: rgba(20,18,50,0.72); color: #fff; font-weight: 800; font-size: 13px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+body.focus .focus-exit { display: flex; }
+body.focus .focus-exit.show { opacity: 1; pointer-events: auto; }
+body.focus.idle, body.focus.idle canvas { cursor: none; }
+
+/* ---------- kids mode ---------- */
+body.kids { --kid: #ff8a00; }
+.kid-world { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kid-world .kw-icon { font-size: 26px; }
+.kid-icon { font-size: 20px; width: 46px; height: 46px; border-radius: 14px; }
+body.kids .brand-name { display: inline; }
+body.kids .dock { gap: 10px; padding: 10px; }
+body.kids .dock-btn { min-width: 96px; padding: 10px 14px; border-radius: 18px; font-size: 15px; font-weight: 900; }
+body.kids .dock-btn .di { font-size: 32px; }
+body.kids .empty-card h2 { font-size: 24px; }
+body.kids .empty-actions .btn { font-size: 18px; padding: 14px 20px; border-radius: 16px; }
+body.kids .empty-card p { display: none; }
+/* creature panel: just big buttons */
+body.kids .creature-panel { width: auto; left: 50%; right: auto; top: auto; bottom: 12px; transform: translateX(-50%); max-width: calc(100% - 24px); }
+.cp-kid-name { flex: 1; font-weight: 900; font-size: 18px; }
+body.kids .cp-actions { flex-wrap: nowrap; gap: 8px; }
+body.kids .cp-actions .chip { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 26px; padding: 8px 12px; border-radius: 16px; min-width: 68px; }
+body.kids .cp-actions .chip span, body.kids .cp-actions .chip { line-height: 1.1; }
+.kid-chip span { font-size: 12px; font-weight: 800; }
+body.kids #cpFlip, body.kids #cpTrick, body.kids #cpDelete { font-size: 0; }
+body.kids #cpFlip::before { content: "↔️"; font-size: 26px; } body.kids #cpFlip::after { content: "Turn"; font-size: 12px; font-weight: 800; }
+body.kids #cpTrick::before { content: "🤸"; font-size: 26px; } body.kids #cpTrick::after { content: "Trick"; font-size: 12px; font-weight: 800; }
+body.kids #cpDelete::before { content: "🗑️"; font-size: 26px; } body.kids #cpDelete::after { content: "Bye!"; font-size: 12px; font-weight: 800; }
+/* drawing pad: fewer, bigger controls */
+body.kids .modal.full .sheet.pad { max-width: none; }
+body.kids .pad-body { grid-template-columns: 1fr 220px; }
+body.kids .pad-tools { gap: 14px; }
+body.kids .seg-btn { font-size: 28px; padding: 10px 4px; }
+.kid-sizes { display: flex; justify-content: space-around; background: #f8f7ff; border-radius: 16px; padding: 8px; }
+.kid-size { width: 56px; height: 56px; border-radius: 50%; border: 3px solid transparent; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); }
+.kid-size i { width: var(--s); height: var(--s); border-radius: 50%; background: var(--c, #1f1d3a); }
+.kid-size.active { border-color: var(--primary); }
+body.kids .palette { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+body.kids .palette .swatch:nth-child(n+13) { display: none; }
+body.kids .pad-actions { grid-template-columns: 1fr; }
+body.kids .pad-actions .btn-big { font-size: 20px; padding: 16px; border-radius: 16px; }
+body.kids .pad-tip { display: none; }
+body.kids .sheet-head h3 { font-size: 20px; }
+body.kids .icon-btn { width: 46px; height: 46px; }
+.kid-hint { margin: 0; font-weight: 800; font-size: 15px; line-height: 1.5; }
+body.kids .tpl-card span { font-size: 16px; }
+body.kids .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+body.kids .chips .chip { font-size: 16px; padding: 8px 14px; }
+body.kids .sh-code-input { font-size: 32px; letter-spacing: 12px; text-align: center; }
+body.kids .shutter { width: 88px; height: 88px; }
+.gate-q { font-size: 30px; font-weight: 900; text-align: center; margin: 8px 0; }
+.gate-input { text-align: center; font-size: 26px; font-weight: 800; }
+.shake { animation: shake .35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {
   .pad-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
@@ -408,6 +485,15 @@ kbd { background: #f1eeff; border-radius: 6px; padding: 1px 6px; font-size: 12px
   .sh-room { flex-direction: column; text-align: center; }
   .sh-info { align-items: center; }
   .sh-form { grid-template-columns: 1fr; }
+  body.kids .dock-btn { min-width: 0; padding: 8px 2px; font-size: 12px; }
+  body.kids .dock-btn .di { font-size: 26px; }
+  body.kids .pad-body { grid-template-columns: 1fr; }
+  body.kids .palette { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  body.kids .seg-btn { font-size: 22px; padding: 6px 4px; }
+  .kid-size { width: 46px; height: 46px; }
+  .kid-world { font-size: 16px; }
+  body.kids .brand-name { display: none; }
+  body.kids .cp-actions .chip { min-width: 0; flex: 1; padding: 6px 4px; }
   .pc-btn { flex-direction: row; justify-content: flex-start; gap: 12px; padding: 12px 14px; text-align: left; }
   .pc-btn span { font-size: 28px; }
   .cam-bar > .muted { visibility: hidden; }

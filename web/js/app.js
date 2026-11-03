@@ -16,6 +16,7 @@
       version: 1,
       current: (state.scenes.find((s) => s.id === state.current && !s.remote) || state.scenes.find((s) => !s.remote) || {}).id || null,
       settings: state.settings,
+      kidsScene: state.kidsScene || null,
       scenes: state.scenes.filter((s) => !s.remote).map((s) => ({
         id: s.id, name: s.name, type: s.type, seed: s.seed, bgImage: s.bgImage || null, motion: s.motion || null,
         creatures: s.creatures.map((c) => ({
@@ -39,6 +40,7 @@
       state.scenes = saved.scenes.map((s) => Object.assign({ creatures: [] }, s, { creatures: (s.creatures || []).filter((c) => c && c.sprite) }));
       state.current = state.scenes.some((s) => s.id === saved.current) ? saved.current : state.scenes[0].id;
       state.settings = Object.assign({ interact: true }, saved.settings || {});
+      state.kidsScene = saved.kidsScene || null;
     } else {
       const s = newScene('ocean');
       state.scenes = [s];
@@ -68,6 +70,7 @@
   }
 
   function renderTabs() {
+    if (isKids()) renderKidWorld();
     const box = $('sceneTabs');
     box.innerHTML = '';
     state.scenes.forEach((s) => {
@@ -121,9 +124,10 @@
       info.innerHTML = `<b>${env.icon} ${env.name}</b><small>${env.desc}</small>`;
       card.appendChild(info);
       card.addEventListener('click', () => {
-        if (type === 'custom') { pendingBg = 'new'; $('bgInput').click(); return; }
+        if (type === 'custom') { pendingBg = isKids() ? 'kids' : 'new'; $('bgInput').click(); return; }
         DA.closeModal('sceneModal');
-        addScene(newScene(type));
+        if (isKids()) setKidsWorld(type);
+        else addScene(newScene(type));
       });
       grid.appendChild(card);
     });
@@ -139,7 +143,10 @@
       const cv = DA.makeCanvas(img.naturalWidth * s, img.naturalHeight * s);
       cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
       const data = cv.toDataURL('image/jpeg', 0.85);
-      if (pendingBg === 'new') {
+      if (pendingBg === 'kids') {
+        DA.closeModal('sceneModal');
+        setKidsWorld('custom', data);
+      } else if (pendingBg === 'new') {
         DA.closeModal('sceneModal');
         addScene(newScene('custom', { bgImage: data, motion: $('customMotion').value }));
       } else {
@@ -171,6 +178,8 @@
       DA.toast(s.remote ? 'Saved a copy of the shared world on this device' : 'Scene duplicated');
     } else if (act === 'photo') { pendingBg = 'current'; $('bgInput').click(); }
     else if (act === 'interact') { state.settings.interact = !state.settings.interact; syncInteractLabel(); scheduleSave(); DA.toast(state.settings.interact ? '🤝 Creatures will play together' : 'Creatures will keep to themselves'); }
+    else if (act === 'focus') setFocus(true);
+    else if (act === 'kids') setKids(true);
     else if (act === 'party') { if (s.creatures.length) DA.World.celebrate(); else DA.toast('Add a creature first!'); }
     else if (act === 'clear') {
       if (!s.creatures.length) { DA.toast('There are no creatures here yet'); return; }
@@ -216,6 +225,7 @@
     if (!c) { p.classList.remove('open'); return; }
     p.classList.add('open');
     $('cpThumb').src = c.sprite;
+    $('cpKidName').textContent = c.name || '';
     if (document.activeElement !== $('cpName')) $('cpName').value = c.name || '';
     $('cpSize').value = c.scale || 1;
     $('cpSpeed').value = c.speed == null ? 1 : c.speed;
@@ -247,6 +257,9 @@
     $('cpTrick').addEventListener('click', () => { const c = sel(); if (c) DA.World.trick(c); });
     $('cpSave').addEventListener('click', () => { const c = sel(); if (c) DA.saveDataURL(c.sprite, safeName(c.name || 'creature') + '.png'); });
     $('cpDelete').addEventListener('click', deleteSelected);
+    const resize = (k) => { const c = sel(); if (!c) return; c.scale = DA.clamp((c.scale || 1) * k, 0.5, 2.5); DA.Sound.play(k > 1 ? 'pop' : 'boing'); scheduleSave(); };
+    $('cpBigger').addEventListener('click', () => resize(1.2));
+    $('cpSmaller').addEventListener('click', () => resize(1 / 1.2));
     $('cpMoveTo').addEventListener('change', (e) => {
       const c = sel(), target = state.scenes.find((s) => s.id === e.target.value);
       if (!c || !target) return;
@@ -258,9 +271,11 @@
     });
   }
 
-  function deleteSelected() {
+  async function deleteSelected() {
     const c = DA.World.selected;
     if (!c) return;
+    if (isKids() && !(await DA.confirm(`Say bye-bye to ${c.name || 'this creature'}?`, '', 'Bye-bye 👋', true))) return;
+    DA.Sound.play('whoosh');
     const r = DA.World.remove(c);
     const scene = currentScene();
     snack(`${c.name || 'Creature'} removed`, () => {
@@ -275,7 +290,13 @@
   /* ================= creature creation ================= */
   let hintShown = false;
   function bringToLife(sprite, info) {
+    if (isKids() && currentScene().creatures.length >= KIDS_MAX) {
+      DA.Sound.play('nope');
+      DA.toast(`Your world is full (${KIDS_MAX})! Tap a creature and press 🗑️ to make room.`, 3500);
+      return null;
+    }
     const c = DA.World.addCreature(sprite, info);
+    DA.Sound.play('magic');
     onWorldChange();
     const env = DA.ENVIRONMENTS[currentScene().type];
     DA.toast(`✨ ${c.name} is alive in ${currentScene().name}!`);
@@ -304,6 +325,7 @@
     });
     function selectColor(col, btn) {
       DA.Pad.setColor(col);
+      document.querySelectorAll('.kid-size i').forEach((i) => i.style.setProperty('--c', col));
       pal.querySelectorAll('.swatch').forEach((s) => s.classList.toggle('active', s === btn));
       $('customColor').value = col.length === 7 ? col : '#000000';
       if (DA.Pad.state.tool === 'eraser') setTool('brush');
@@ -328,6 +350,15 @@
       d.style.setProperty('--c', DA.Pad.state.tool === 'eraser' ? '#ffffff' : DA.Pad.state.color);
     }
     $('sizeRange').addEventListener('input', (e) => { DA.Pad.setSize(+e.target.value); updateSizeDot(); });
+    document.querySelectorAll('[data-ksize]').forEach((b) => b.addEventListener('click', () => {
+      DA.Pad.setSize(+b.dataset.ksize);
+      $('sizeRange').value = b.dataset.ksize;
+      document.querySelectorAll('[data-ksize]').forEach((x) => x.classList.toggle('active', x === b));
+      if (DA.Pad.state.tool === 'fill') setTool('brush');
+      DA.Sound.play('pop');
+      updateSizeDot();
+    }));
+    document.querySelectorAll('.kid-size i').forEach((i) => i.style.setProperty('--c', DA.Pad.state.color));
     updateSizeDot();
 
     $('stayInside').addEventListener('change', (e) => DA.Pad.setStayInside(e.target.checked));
@@ -335,6 +366,7 @@
     $('padUndo').addEventListener('click', () => DA.Pad.undo());
     $('padRedo').addEventListener('click', () => DA.Pad.redo());
     $('padClear').addEventListener('click', async () => {
+      if (isKids() && !(await DA.confirm('Start again?', 'Your picture will be wiped clean.', 'Start again', true))) return;
       if (DA.Pad.hasTemplate()) {
         DA.Pad.clear(true);
         DA.toast('Colours cleared (Undo brings them back)');
@@ -575,6 +607,7 @@
       if (e.key === 'Escape') {
         if (menu.classList.contains('open')) { menu.classList.remove('open'); return; }
         if (top) { DA.closeModal(top); return; }
+        if (document.body.classList.contains('focus')) { setFocus(false); return; }
         if (overviewOpen()) { closeOverview(); return; }
         DA.World.select(null);
         return;
@@ -586,7 +619,7 @@
       if (top === 'photoModal' && mod && e.key.toLowerCase() === 'z') { e.preventDefault(); $('phUndo').click(); return; }
       if (top) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && DA.World.selected) { e.preventDefault(); deleteSelected(); }
-      else if (e.key === ' ') { e.preventDefault(); togglePause(); }
+      else if (e.key === ' ' && !isKids()) { e.preventDefault(); togglePause(); }
     });
 
     $('creaturePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -723,6 +756,7 @@
   /* ================= all worlds overview ================= */
   const OV = { tiles: [], ro: null };
   function openOverview() {
+    if (isKids()) return;
     if (OV.ro) OV.ro.disconnect();
     DA.World.select(null);
     const grid = $('ovGrid');
@@ -785,6 +819,140 @@
     DA.World.setInteract(state.settings.interact);
   }
 
+
+  /* ================= kids mode ================= */
+  const KIDS_MAX = 25;
+  const isKids = () => document.body.classList.contains('kids');
+
+  function setKids(on, quiet) {
+    if (on) {
+      if (DA.Share.role === 'host') { DA.toast('Stop the main screen first (📡 Share → Stop)'); return; }
+      closeOverview();
+      setFocus(false);
+      $('sceneMenu').classList.remove('open');
+      let s = state.scenes.find((x) => x.id === state.kidsScene && !x.remote);
+      if (!s) {
+        s = newScene('meadow', { name: 'My World' });
+        state.scenes.push(s);
+        state.kidsScene = s.id;
+      }
+      document.body.classList.add('kids');
+      state.settings.kids = true;
+      DA.Sound.setEnabled(state.settings.sound !== false);
+      syncSoundIcon();
+      // friendly defaults for small hands
+      DA.Pad.setSize(18); $('sizeRange').value = 18;
+      DA.Pad.setStayInside(true); $('stayInside').checked = true;
+      DA.Pad.setSolidInside(true); $('solidInside').checked = true;
+      switchScene(s.id);
+      if (!quiet) { DA.Sound.play('yay'); DA.toast('🧒 Kids mode is on!'); }
+    } else {
+      document.body.classList.remove('kids');
+      state.settings.kids = false;
+      DA.Sound.setEnabled(false);
+      renderTabs();
+      DA.toast('Kids mode is off');
+    }
+    renderKidWorld();
+    scheduleSave();
+  }
+
+  /** Kids have exactly one world – picking an environment changes it. */
+  function setKidsWorld(type, bgImage) {
+    const s = currentScene();
+    s.type = type;
+    s.seed = Math.floor(Math.random() * 1e9);
+    s._decor = null;
+    if (type === 'custom') { s.bgImage = bgImage; s._bgImg = null; s.motion = 'walk'; }
+    s.name = type === 'custom' ? 'My Photo World' : 'My ' + DA.ENVIRONMENTS[type].name;
+    s.creatures.forEach((c) => { if (c._rt) c._rt.next = 0; });
+    DA.Env.prepare(s);
+    DA.Sound.play('magic');
+    onWorldChange();
+    renderKidWorld();
+  }
+
+  function renderKidWorld() {
+    const s = currentScene();
+    const env = DA.ENVIRONMENTS[s.type] || {};
+    $('kidWorld').innerHTML = `<span class="kw-icon">${env.icon || '🌍'}</span><span class="kw-name"></span>`;
+    $('kidWorld').querySelector('.kw-name').textContent = s.name;
+  }
+
+  function syncSoundIcon() {
+    const on = state.settings.sound !== false;
+    $('kidSound').textContent = on ? '🔊' : '🔇';
+    $('kidSound').setAttribute('aria-pressed', on);
+  }
+
+  /* grown-ups gate: a sum small children can't do yet */
+  let gateAnswer = 0;
+  function openGate() {
+    const a = 6 + Math.floor(Math.random() * 4), b = 6 + Math.floor(Math.random() * 4);
+    gateAnswer = a * b;
+    $('gateQ').textContent = `${a} × ${b} = ?`;
+    $('gateInput').value = '';
+    $('gateMsg').textContent = '';
+    DA.openModal('gateModal');
+    setTimeout(() => $('gateInput').focus(), 60);
+  }
+  function checkGate() {
+    if (+$('gateInput').value === gateAnswer) { DA.closeModal('gateModal'); setKids(false); return; }
+    const sheet = $('gateModal').querySelector('.sheet');
+    sheet.classList.remove('shake'); void sheet.offsetWidth; sheet.classList.add('shake');
+    $('gateMsg').textContent = 'Not quite – try this one.';
+    const a = 6 + Math.floor(Math.random() * 4), b = 6 + Math.floor(Math.random() * 4);
+    gateAnswer = a * b;
+    $('gateQ').textContent = `${a} × ${b} = ?`;
+    $('gateInput').value = '';
+    $('gateInput').focus();
+  }
+
+  /* ================= "only worlds" view ================= */
+  let focusTimer = null;
+  function setFocus(on) {
+    if (on && isKids()) return;
+    document.body.classList.toggle('focus', on);
+    DA.World.select(null);
+    $('sceneMenu').classList.remove('open');
+    if (on) { pokeFocus(); DA.toast('Move the mouse or tap the screen to show the buttons again', 2600); }
+    else { clearTimeout(focusTimer); $('focusExit').classList.remove('show'); document.body.classList.remove('idle'); }
+  }
+  function pokeFocus() {
+    if (!document.body.classList.contains('focus')) return;
+    $('focusExit').classList.add('show');
+    document.body.classList.remove('idle');
+    clearTimeout(focusTimer);
+    focusTimer = setTimeout(() => { $('focusExit').classList.remove('show'); document.body.classList.add('idle'); }, 2500);
+  }
+
+  function setupModes() {
+    // kids
+    $('kidExit').addEventListener('click', openGate);
+    $('gateOk').addEventListener('click', checkGate);
+    $('gateCancel').addEventListener('click', () => DA.closeModal('gateModal'));
+    $('gateInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') checkGate(); });
+    $('kidSound').addEventListener('click', () => {
+      state.settings.sound = state.settings.sound === false;
+      DA.Sound.setEnabled(state.settings.sound);
+      syncSoundIcon();
+      DA.Sound.play('pop');
+      scheduleSave();
+    });
+    $('kidWorldBtn').addEventListener('click', () => DA.openModal('sceneModal'));
+    $('kidSendBtn').addEventListener('click', () => DA.Share.open('guest'));
+    $('sceneModal').addEventListener('modal-open', () => {
+      $('sceneTitle').textContent = isKids() ? '🌍 Pick your world' : '🌍 Add a new environment';
+    });
+    DA.World.on('tap', () => DA.Sound.play('boing'));
+    document.querySelector('.dock').addEventListener('click', (e) => { if (isKids() && e.target.closest('.dock-btn')) DA.Sound.play('pop'); });
+    // only worlds
+    $('focusBtn').addEventListener('click', () => setFocus(true));
+    $('ovFocus').addEventListener('click', () => setFocus(true));
+    $('focusExit').addEventListener('click', () => setFocus(false));
+    ['pointermove', 'pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, pokeFocus, { passive: true }));
+  }
+
   /* ================= start ================= */
   async function start() {
     DA.World.init($('world'));
@@ -800,10 +968,12 @@
     DA.Share.init();
     $('overviewBtn').addEventListener('click', () => (overviewOpen() ? closeOverview() : openOverview()));
     $('ovClose').addEventListener('click', closeOverview);
+    setupModes();
     buildEnvGrid();
     await load();
     switchScene(state.current);
     syncInteractLabel();
+    if (state.settings.kids || new URLSearchParams(location.search).get('kids') === '1') setKids(true, true);
     window.addEventListener('pagehide', () => DA.storage.set('state', serialise()));
     document.addEventListener('visibilitychange', () => { if (document.hidden) DA.storage.set('state', serialise()); });
 
@@ -829,6 +999,8 @@
         if (top) { DA.closeModal(top); return; }
         if (overviewOpen()) { closeOverview(); return; }
         if (DA.World.selected) { DA.World.select(null); return; }
+        if (document.body.classList.contains('focus')) { setFocus(false); return; }
+        if (isKids()) { DA.toast('🔒 Ask a grown-up to leave kids mode'); return; }
         DA.storage.set('state', serialise()).finally(() => AppPlugin.exitApp());
       });
       AppPlugin.addListener('pause', () => DA.storage.set('state', serialise()));
@@ -837,7 +1009,7 @@
 
   // expose for tests / debugging
   DA.App = {
-    get state() { return state; }, serialise, currentScene, switchScene, openOverview,
+    get state() { return state; }, serialise, currentScene, switchScene, openOverview, isKids, setKids, setFocus,
     /** Re-render after outside changes (e.g. a shared world arrived). */
     refresh() {
       onWorldChange();

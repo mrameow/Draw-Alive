@@ -203,6 +203,20 @@ async function run(viewport, tag) {
   const painted = await page.evaluate(() => [...document.querySelectorAll('.ov-tile canvas')].every((c) => { const d = c.getContext('2d').getImageData(c.width / 2, c.height / 2, 1, 1).data; return d[3] > 0; }));
   check(painted, 'every world is drawn live in the overview');
   await page.screenshot({ path: `${OUT}/${tag}-13-overview.png` });
+  // hovering tiles must not resize anything (no jerk, no scrollbar popping in)
+  const sizes0 = await page.evaluate(() => [...document.querySelectorAll('.ov-tile canvas')].map((c) => c.width + 'x' + c.height).join());
+  for (let i = 0; i < 4; i++) { const b = await page.locator('.ov-tile').nth(i).boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(120); }
+  const sizes1 = await page.evaluate(() => [...document.querySelectorAll('.ov-tile canvas')].map((c) => c.width + 'x' + c.height).join());
+  const noHScroll = await page.evaluate(() => { const g = document.getElementById('ovGrid'); return g.scrollWidth <= g.clientWidth; });
+  check(sizes0 === sizes1 && noHScroll, 'hovering worlds in the overview does not resize or scroll');
+  // only-worlds view inside the overview
+  await page.click('#ovFocus');
+  await page.waitForTimeout(400);
+  check(!(await page.isVisible('.topbar')) && !(await page.isVisible('.dock')) && !(await page.isVisible('.ov-head')), 'only-worlds view hides every control');
+  await page.screenshot({ path: `${OUT}/${tag}-14-onlyworlds.png` });
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  check(await page.isVisible('.topbar'), 'Esc brings the controls back');
   await page.click('.ov-tile:has-text("Meadow")');
   await page.waitForTimeout(300);
   check(!(await page.isVisible('#overview')) && await page.evaluate(() => DA.App.currentScene().type) === 'meadow', 'tapping a world opens it');
@@ -220,6 +234,60 @@ async function run(viewport, tag) {
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/${tag}-10-help.png` });
   await page.keyboard.press('Escape');
+
+  // ---- kids mode ----
+  await page.click('#sceneMenuBtn');
+  await page.click('[data-act=kids]');
+  await page.waitForTimeout(400);
+  check(await page.evaluate(() => document.body.classList.contains('kids')), 'kids mode turns on');
+  const kidButtons = await page.$$eval('.dock .dock-btn', (bs) => bs.filter((b) => b.offsetParent).map((b) => b.textContent.trim().replace(/\s+/g, ' ')));
+  check(kidButtons.length === 5, 'kids dock shows only 5 big buttons: ' + kidButtons.join(' | '));
+  check(!(await page.isVisible('#sceneTabs')) && !(await page.isVisible('#addSceneBtn')) && !(await page.isVisible('#overviewBtn')), 'kids cannot see world tabs, add world or overview');
+  await page.click('.dock [data-open=templates]');
+  await page.click('.tpl-card:has-text("Fish")');
+  await page.waitForTimeout(300);
+  check(!(await page.isVisible('#sizeRange')) && await page.isVisible('.kid-sizes') && !(await page.isVisible('#customColor')), 'kids drawing panel is simplified');
+  await page.screenshot({ path: `${OUT}/${tag}-15-kids-pad.png` });
+  await page.click('#padAnimate');
+  await page.waitForTimeout(400);
+  const kid1 = await page.evaluate(() => ({ n: DA.App.currentScene().creatures.length, id: DA.App.currentScene().id, total: DA.App.state.scenes.length }));
+  check(kid1.n === 1, 'kid made a creature in their own world');
+  await page.click('#kidWorldBtn');
+  await page.click('.env-card:has-text("Space")');
+  await page.waitForTimeout(300);
+  const kid2 = await page.evaluate(() => ({ n: DA.App.currentScene().creatures.length, id: DA.App.currentScene().id, total: DA.App.state.scenes.length, type: DA.App.currentScene().type }));
+  check(kid2.type === 'space' && kid2.id === kid1.id && kid2.total === kid1.total && kid2.n === 1, 'picking a world changes the one world (no extra worlds, creature kept)');
+  await page.evaluate(() => DA.World.select(DA.App.currentScene().creatures[0]));
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/${tag}-16-kids-world.png` });
+  const sc0 = await page.evaluate(() => DA.App.currentScene().creatures[0].scale);
+  await page.click('#cpBigger');
+  check(await page.evaluate(() => DA.App.currentScene().creatures[0].scale) > sc0, 'kid "Bigger" button works');
+  await page.click('#kidSendBtn');
+  await page.waitForTimeout(200);
+  check(await page.isVisible('#shGuest') && !(await page.isVisible('#shHost')) && !(await page.isVisible('[data-shtab=host]')), 'kids can only send their world, not be the main screen');
+  await page.click('[data-close=shareModal]');
+  await page.evaluate(() => DA.World.select(DA.App.currentScene().creatures[0]));
+  await page.click('#cpDelete');
+  await page.waitForTimeout(200);
+  check(await page.isVisible('#confirmModal'), 'deleting asks the kid first');
+  await page.click('#confirmOk');
+  await page.waitForTimeout(200);
+  check(await page.evaluate(() => DA.App.currentScene().creatures.length) === 0, 'creature deleted after confirming');
+  await page.waitForTimeout(1000);
+  await page.reload();
+  await page.waitForTimeout(1000);
+  check(await page.evaluate(() => document.body.classList.contains('kids')), 'kids mode stays on after restarting');
+  await page.click('#kidExit');
+  const q = await page.textContent('#gateQ');
+  await page.fill('#gateInput', '1');
+  await page.click('#gateOk');
+  check(await page.evaluate(() => document.body.classList.contains('kids')), 'wrong answer keeps kids mode locked');
+  const q2 = (await page.textContent('#gateQ')).match(/(\d+) × (\d+)/);
+  await page.fill('#gateInput', String(q2[1] * q2[2]));
+  await page.click('#gateOk');
+  await page.waitForTimeout(200);
+  check(!(await page.evaluate(() => document.body.classList.contains('kids'))) && await page.isVisible('#sceneTabs'), 'grown-up answer unlocks kids mode');
 
   check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await browser.close();
