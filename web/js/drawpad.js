@@ -126,7 +126,7 @@
         }
         c.drawImage(paint, 0, 0);
       }
-      const trimmed = DA.trimCanvas(out, 360, 6);
+      const trimmed = DA.trimCanvas(out, 800, 6);
       if (!trimmed) return null;
       return { canvas: trimmed, name: S.template ? S.template.name : 'Drawing', template: S.template ? S.template.id : null };
     }

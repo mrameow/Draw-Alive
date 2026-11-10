@@ -443,6 +443,8 @@
   function stepScene(s, target, dt, isMain) {
     ctx = target.ctx; W = target.w; H = target.h; rs = s; mainView = isMain;
     ctx.setTransform(target.dpr, 0, 0, target.dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     DA.Env.render(ctx, s, W, H, time);
     const list = s.creatures.slice();
     if (!paused) {
@@ -660,15 +662,21 @@
       setMain();
     },
     get overview() { return !!overview; },
-    snapshot() {
-      const was = selected;
-      selected = null;
-      const p = particles; particles = [];
-      stepScene(scene, { ctx: mainCtx, w: mainW, h: mainH, dpr }, 0, true);
-      particles = p;
-      const url = canvas.toDataURL('image/png');
-      selected = was;
-      return url;
+    /**
+     * Draw a world into a new, large canvas (for saving pictures). The world is laid out
+     * for a view of cssW × cssH (like on screen) but drawn `scale` times sharper.
+     */
+    renderHiRes(s, cssW, cssH, scale) {
+      const cv = DA.makeCanvas(cssW * scale, cssH * scale);
+      const was = selected; selected = null;
+      try { stepScene(s, { ctx: cv.getContext('2d'), w: cssW, h: cssH, dpr: scale }, 0, false); }
+      finally { selected = was; setMain(); }
+      return cv;
+    },
+    /** High-resolution picture of the world on screen (long side ≈ 2560 px). */
+    snapshot(longSide) {
+      const scale = Math.max(2, (longSide || 2560) / Math.max(mainW, mainH));
+      return this.renderHiRes(scene, mainW, mainH, scale).toDataURL('image/png');
     },
     changed() { emit('change'); }
   };

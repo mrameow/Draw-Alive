@@ -228,23 +228,33 @@
   };
 
   /* ---------- saving files (web, desktop and Android) ---------- */
+  /**
+   * Save a picture. Returns where it went: 'gallery' (Android: Draw Alive album),
+   * 'shared' (Android share sheet, if the gallery save failed), 'download' (web / desktop) or false.
+   */
   DA.saveDataURL = async function (dataURL, filename) {
     const cap = window.Capacitor;
-    if (cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.Filesystem) {
+    const native = cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins;
+    if (native && cap.Plugins.Media) {
       try {
-        const base64 = dataURL.split(',')[1];
-        const fs = cap.Plugins.Filesystem;
-        const res = await fs.writeFile({ path: filename, data: base64, directory: 'CACHE' });
-        if (cap.Plugins.Share) {
-          await cap.Plugins.Share.share({ title: 'Draw Alive', files: [res.uri] });
-          return true;
-        }
-        await fs.writeFile({ path: 'Pictures/' + filename, data: base64, directory: 'DOCUMENTS', recursive: true });
-        DA.toast('Saved to Documents/Pictures');
-        return true;
+        const media = cap.Plugins.Media;
+        const base = (await media.getAlbumsPath()).path;
+        const album = base + '/Draw Alive';
+        try { await media.createAlbum({ name: 'Draw Alive' }); } catch (e) { /* already exists */ }
+        await media.savePhoto({ path: dataURL, albumIdentifier: album, fileName: filename.replace(/\.png$/i, '') + '-' + Date.now() });
+        return 'gallery';
+      } catch (e) {
+        console.warn('Saving to the gallery failed, offering Share instead', e);
+      }
+    }
+    if (native && cap.Plugins.Filesystem && cap.Plugins.Share) {
+      try {
+        const res = await cap.Plugins.Filesystem.writeFile({ path: filename, data: dataURL.split(',')[1], directory: 'CACHE' });
+        await cap.Plugins.Share.share({ title: 'Draw Alive', files: [res.uri] });
+        return 'shared';
       } catch (e) {
         if (e && /cancel/i.test(String(e.message || e))) return false;
-        console.warn('Native save failed, falling back', e);
+        console.warn('Native share failed, falling back', e);
       }
     }
     const a = document.createElement('a');
@@ -253,6 +263,6 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    return true;
+    return 'download';
   };
 })();

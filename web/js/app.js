@@ -263,7 +263,7 @@
     $('cpFront').addEventListener('click', () => { const c = sel(); if (c) DA.World.bringToFront(c); });
     $('cpTrick').addEventListener('click', () => { const c = sel(); if (c) DA.World.trick(c); });
     $('cpEdit').addEventListener('click', () => { const c = sel(); if (c) editCreature(c); });
-    $('cpSave').addEventListener('click', () => { const c = sel(); if (c) DA.saveDataURL(c.sprite, safeName(c.name || 'creature') + '.png'); });
+    $('cpSave').addEventListener('click', async () => { const c = sel(); if (c) savedToast(await DA.saveDataURL(c.sprite, safeName(c.name || 'creature') + '.png')); });
     $('cpDelete').addEventListener('click', deleteSelected);
     const resize = (k) => { const c = sel(); if (!c) return; c.scale = DA.clamp((c.scale || 1) * k, 0.5, 2.5); DA.Sound.play(k > 1 ? 'pop' : 'boing'); scheduleSave(); };
     $('cpBigger').addEventListener('click', () => resize(1.2));
@@ -480,7 +480,7 @@
         const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
         if (!iw || !ih) throw new Error('empty image');
         DA.closeModal('photoChooser');
-        const fs = Math.min(1, 640 / Math.max(iw, ih));
+        const fs = Math.min(1, 1280 / Math.max(iw, ih));
         PH.full = DA.makeCanvas(iw * fs, ih * fs);
         PH.full.getContext('2d').drawImage(img, 0, 0, PH.full.width, PH.full.height);
         const ws = Math.min(1, 300 / Math.max(PH.full.width, PH.full.height));
@@ -640,7 +640,7 @@
 
     $('phAdd').addEventListener('click', () => {
       if (!PH.result) return;
-      const sprite = DA.trimCanvas(PH.result, 360, 4);
+      const sprite = DA.trimCanvas(PH.result, 800, 4);
       if (!sprite) { DA.toast('Nothing left to keep – try lowering the strength or use the Keep brush'); return; }
       bringToLife(sprite, { name: PH.name || 'Photo' });
       DA.closeModal('photoModal');
@@ -1017,7 +1017,8 @@
   function overviewSnapshot() {
     const grid = $('ovGrid');
     const g = grid.getBoundingClientRect();
-    const k = Math.min(2, window.devicePixelRatio || 1);
+    // sharp picture: long side ≈ 3200 px, every world re-drawn at that size
+    const k = Math.max(2, 3200 / Math.max(grid.clientWidth, grid.scrollHeight, 1));
     const out = DA.makeCanvas(grid.clientWidth * k, Math.max(grid.scrollHeight, grid.clientHeight) * k);
     const x = out.getContext('2d');
     x.fillStyle = '#f3f1ff';
@@ -1029,10 +1030,10 @@
       x.beginPath();
       x.rect(left, top, r.width * k, r.height * k);
       x.clip();
-      x.drawImage(t.canvas, left, top, r.width * k, r.height * k);
+      x.drawImage(DA.World.renderHiRes(t.scene, r.width, r.height, k), left, top, r.width * k, r.height * k);
       if (!document.body.classList.contains('focus')) {
         // keep the world names in the picture when they are shown on screen
-        const fs = 13 * k;
+        const fs = 13 * k / 1.2;
         x.font = `800 ${fs}px ui-rounded, "Segoe UI", system-ui, sans-serif`;
         const label = (t.scene.remote ? '📡 ' + t.scene.remote.owner + ' · ' : '') + t.scene.name;
         const w = x.measureText(label).width + fs * 1.2;
@@ -1046,11 +1047,16 @@
     });
     return out.toDataURL('image/png');
   }
+  function savedToast(where) {
+    if (where === 'gallery') DA.toast('📸 Saved to your gallery (Draw Alive album)', 3000);
+    else if (where === 'download') DA.toast('📸 Picture saved!');
+  }
   async function savePicture() {
     try {
-      if (overviewOpen()) await DA.saveDataURL(overviewSnapshot(), 'draw-alive-all-worlds.png');
-      else await DA.saveDataURL(DA.World.snapshot(), safeName('draw-alive-' + currentScene().name) + '.png');
-      DA.toast('📸 Picture saved!');
+      const where = overviewOpen()
+        ? await DA.saveDataURL(overviewSnapshot(), 'draw-alive-all-worlds.png')
+        : await DA.saveDataURL(DA.World.snapshot(), safeName('draw-alive-' + currentScene().name) + '.png');
+      savedToast(where);
     } catch (e) {
       DA.toast('Sorry, the picture could not be saved');
     }

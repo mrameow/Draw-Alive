@@ -23,7 +23,7 @@ no accounts, no servers, and nothing leaves your device.
 | ✏️ **Edit creatures** | Tap a creature → **✏️ Edit** opens its drawing in the pad. Change it and press **Save changes**; it keeps its name, size and place. Edits also sync to and from shared worlds. |
 | 🏷️ **Names** | ⋮ → **Show creature names** puts a name tag under every creature. |
 | 💾 **Saves automatically** | Everything is stored on the device (IndexedDB) and comes back next time. |
-| 🖼️ **Save picture** | Export a snapshot of your world as a PNG (on Android it opens the share sheet). |
+| 🖼️ **Save picture** | Saves a sharp PNG of your world (about 2,560 px; all worlds at once about 3,200 px). On Android it goes straight into the gallery, in a **Draw Alive** album. |
 | ✨ Extras | Pause/play, full screen, “make everyone jump” party button, rename/duplicate/delete worlds, keyboard shortcuts, Android back button closes dialogs, works offline as an installable web app. |
 
 ### Background remover: Quick AI or Silueta

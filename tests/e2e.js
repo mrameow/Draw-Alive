@@ -12,6 +12,11 @@ const server = http.createServer((req, res) => {
 }).listen(0);
 const URL_ = `http://127.0.0.1:${server.address().port}/`;
 let failures = 0;
+/** Width/height of a downloaded PNG (read from its header). */
+async function pngSize(download) {
+  const b = fs.readFileSync(await download.path());
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+}
 const check = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg); if (!cond) failures++; };
 
 async function makePhoto(page) {
@@ -188,7 +193,9 @@ async function run(viewport, tag) {
   check(await page.evaluate(() => DA.World.motionOf(DA.App.currentScene().creatures[0])) === 'fly', 'bird flies in the meadow');
   const dl = page.waitForEvent('download', { timeout: 3000 }).catch(() => null);
   await menuAct('snap', '#snapBtn');
-  check(!!(await dl), 'save picture downloads a PNG');
+  const shot = await dl;
+  check(!!shot, 'save picture downloads a PNG');
+  if (shot) { const sz = await pngSize(shot); check(Math.max(sz.w, sz.h) >= 2400, `saved picture is high resolution (${sz.w}×${sz.h})`); }
 
   // ---- paste a picture from the clipboard → cut-out editor opens ----
   await goWorld('Ocean', true);
@@ -277,6 +284,7 @@ async function run(viewport, tag) {
   await page.click('#focusSnap');
   const allPic = await dlAll;
   check(!!allPic && /all-worlds/.test(allPic.suggestedFilename()), 'full-screen "Save picture" saves all worlds in one picture');
+  if (allPic) { const sz = await pngSize(allPic); check(Math.max(sz.w, sz.h) >= 3000, `all-worlds picture is high resolution (${sz.w}×${sz.h})`); }
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   check(await page.isVisible('.topbar'), 'Esc brings the controls back');
