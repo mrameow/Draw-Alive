@@ -322,6 +322,53 @@
     return out;
   }
 
+  /**
+   * Turn an AI foreground guess (0..1 per pixel) into a clean cut-out mask.
+   * The AI leads; we only add what it tends to miss and the user's touch-ups:
+   *  - strength 0..100 moves the cut line (higher = removes more)
+   *  - keep / remove scribbles always win
+   *  - enclosed areas (the white inside a drawing on paper) are filled in
+   *  - tiny stray specks are dropped
+   */
+  function refineAI(ai, w, h, opts) {
+    opts = opts || {};
+    const n = w * h;
+    const hints = opts.hints || new Uint8Array(n);
+    const strength = opts.strength == null ? 50 : opts.strength;
+    const thr = 0.5 + (strength - 50) / 100 * 0.5; // 0.25 .. 0.75
+    const lo = thr - 0.12, hi = thr + 0.12;
+    const out = new Float32Array(n);
+    const m = new Uint8Array(n);
+    for (let p = 0; p < n; p++) {
+      let a = DA.clamp((ai[p] - lo) / (hi - lo), 0, 1);
+      a = a * a * (3 - 2 * a);
+      if (hints[p] === 1) a = 1; else if (hints[p] === 2) a = 0;
+      out[p] = a;
+      m[p] = a > 0.5 ? 1 : 0;
+    }
+    // drop tiny specks (keep every piece that is at least 2 % of the biggest one)
+    const fg = components(m, w, h, 1);
+    if (fg.sizes.length) {
+      const big = Math.max.apply(null, fg.sizes);
+      const keep = fg.sizes.map((sz) => sz >= big * 0.02);
+      for (let p = 0; p < n; p++) if (hints[p] === 1 && fg.label[p] >= 0) keep[fg.label[p]] = true;
+      for (let p = 0; p < n; p++) if (m[p] && !keep[fg.label[p]]) { m[p] = 0; out[p] = 0; }
+    }
+    if (opts.fillHoles !== false) {
+      let area = 0;
+      for (let p = 0; p < n; p++) area += m[p];
+      const holes = components(m, w, h, 0);
+      const removed = new Uint8Array(holes.sizes.length);
+      for (let p = 0; p < n; p++) if (hints[p] === 2 && holes.label[p] >= 0) removed[holes.label[p]] = 1;
+      for (let p = 0; p < n; p++) {
+        const l = holes.label[p];
+        // only fill holes that are clearly inside the object (not huge gaps between legs etc.)
+        if (l >= 0 && !holes.touchesBorder[l] && !removed[l] && holes.sizes[l] < area * 1.5) out[p] = 1;
+      }
+    }
+    return out;
+  }
+
   /** Apply a working-size mask to a (larger) image canvas. Returns a new canvas. */
   function applyMask(full, mask, mw, mh) {
     const mc = DA.makeCanvas(mw, mh);
@@ -364,5 +411,5 @@
     return out;
   }
 
-  DA.BgRemove = { computeMask, applyMask, legacy };
+  DA.BgRemove = { computeMask, refineAI, applyMask, legacy };
 })();

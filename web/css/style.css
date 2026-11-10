@@ -383,6 +383,11 @@ kbd { background: #f1eeff; border-radius: 6px; padding: 1px 6px; font-size: 12px
 /* keep the main action button reachable when the tool list scrolls */
 .pad-actions { position: sticky; bottom: 0; background: var(--card); padding-top: 6px; z-index: 1; }
 
+/* background remover picker */
+.engine-field { gap: 6px; }
+.engine-select { width: 100%; border: 2px solid var(--primary); border-radius: 12px; padding: 9px 10px; font-size: 14px; font-weight: 800; background: #f6f4ff; color: var(--ink); }
+.engine-field small { font-weight: 600; line-height: 1.35; }
+
 /* ---------- mode switches ---------- */
 .kids-btn { font-size: 20px; }
 body.kids .adult-only { display: none !important; }
@@ -577,7 +582,8 @@ body.native #fullBtn { display: none; }
   .pad-tools .btn-big { padding: 13px; font-size: 16px; }
 
   /* photo editor uses the same compact layout */
-  #photoModal .pad-tools { grid-template-areas: "seg seg" "hint hint" "str str" "more more" "act act"; }
+  #photoModal .pad-tools { grid-template-areas: "eng eng" "seg seg" "hint hint" "str str" "more more" "act act"; }
+  #photoModal .pad-tools > .field.engine-field { grid-area: eng; flex-direction: column; align-items: stretch; }
   #photoModal .pad-tools > .seg { grid-area: seg; }
   #photoModal .pad-tools .seg-btn span { display: inline; font-size: 13px; }
   #photoModal .pad-tools .seg-btn { flex-direction: row; justify-content: center; gap: 6px; font-size: 18px; }

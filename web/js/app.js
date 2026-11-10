@@ -455,7 +455,7 @@
         hints.width = PH.work.width; hints.height = PH.work.height;
         hctx.clearRect(0, 0, hints.width, hints.height);
         PH.undo = [];
-        PH.ai = null; PH.aiPromise = null; PH.token = (PH.token || 0) + 1;
+        PH.ai = {}; PH.token = (PH.token || 0) + 1;
         PH.name = String(name || 'Photo').replace(/\.[^.]+$/, '').replace(/^image$/i, 'Photo').slice(0, 20) || 'Photo';
         $('phStrength').value = 50; $('phOff').checked = false; $('phShowOrig').checked = false; $('phFillHoles').checked = true;
         DA.openModal('photoModal');
@@ -475,35 +475,77 @@
     window.addEventListener('resize', fitPhoto);
 
     let busyTimer = null;
-    /** The AI guess is computed once per photo and reused when the user touches it up. */
-    function aiMaskFor(w, h) {
-      if (!$('phAI').checked || !DA.AI) return Promise.resolve(null);
-      if (!PH.aiPromise) PH.aiPromise = DA.AI.mask(PH.work, w, h).then((m) => (PH.ai = m));
-      return PH.aiPromise;
+    /* ---- which background remover (the user can try each one) ---- */
+    const engineSel = $('phEngine');
+    function engineList() {
+      engineSel.innerHTML = '';
+      Object.keys(DA.AI.ENGINES).forEach((id) => {
+        const o = document.createElement('option'); o.value = id; o.textContent = DA.AI.ENGINES[id].label; engineSel.appendChild(o);
+      });
+      const c = document.createElement('option'); c.value = 'classic'; c.textContent = '🖌️ Classic – colours only (no AI)'; engineSel.appendChild(c);
+      engineSel.value = DA.AI.ENGINES[state.settings.remover] || state.settings.remover === 'classic' ? state.settings.remover : 'u2netp';
+    }
+    async function engineInfo() {
+      const id = engineSel.value, e = DA.AI.ENGINES[id];
+      if (!e) { $('phEngineInfo').textContent = 'Uses colours and outlines only – good for drawings on plain paper.'; return; }
+      const have = await DA.AI.isDownloaded(id);
+      $('phEngineInfo').textContent = e.bundled ? '✓ Built in, works offline.' : have ? '✓ Downloaded – works offline.' : `Downloads ${e.mb} MB once (needs internet), then works offline.${e.slow ? ' Slow: up to ~30 s on phones.' : ''}`;
+    }
+    engineList(); engineInfo();
+    $('photoModal').addEventListener('modal-open', () => {
+      const want = state.settings.remover;
+      engineSel.value = DA.AI.ENGINES[want] || want === 'classic' ? want : 'u2netp';
+      engineInfo();
+    });
+    engineSel.addEventListener('change', () => {
+      state.settings.remover = engineSel.value;
+      scheduleSave();
+      engineInfo();
+      recompute();
+    });
+
+    function busyText(t) { $('phBusyText').textContent = t; }
+    /** The AI guess is computed once per photo and engine, and reused while the user touches it up. */
+    async function aiMaskFor(id, w, h) {
+      if (PH.ai[id] === undefined) {
+        const e = DA.AI.ENGINES[id];
+        PH.ai[id] = await DA.AI.mask(id, PH.work, w, h, (f) => {
+          if (f === null) busyText(e.slow ? `✨ ${e.label.replace(/^\S+\s/, '')} is thinking… (can take a while)` : '✨ Finding your creature…');
+          else busyText(`⬇️ Downloading ${e.label.replace(/^\S+\s/, '')}… ${Math.round(f * e.mb)} / ${e.mb} MB`);
+        });
+      }
+      return PH.ai[id];
     }
     function recompute() {
       if (!PH.work) return;
+      busyText('✨ Finding your creature…');
       $('phBusy').classList.add('show');
       clearTimeout(busyTimer);
       const token = PH.token;
       busyTimer = setTimeout(async () => {
         try {
           const w = PH.work.width, h = PH.work.height;
-          const ai = $('phOff').checked ? null : await aiMaskFor(w, h);
+          const id = engineSel.value;
+          const useAI = !$('phOff').checked && !!DA.AI.ENGINES[id];
+          let ai = useAI ? await aiMaskFor(id, w, h) : null;
           if (token !== PH.token || !PH.work) return; // a newer photo was opened meanwhile
+          if (useAI && !ai) {
+            const e = DA.AI.ENGINES[id];
+            DA.toast(e.bundled ? 'AI is not available on this device – using Classic.' : `Could not download ${e.label.replace(/^\S+\s/, '')} (check the internet). Using Quick AI.`, 3600);
+            if (!e.bundled) { engineSel.value = 'u2netp'; state.settings.remover = 'u2netp'; engineInfo(); ai = await aiMaskFor('u2netp', w, h); }
+          }
           if ($('phOff').checked) {
             PH.mask = new Float32Array(w * h).fill(1);
           } else {
             const hd = hctx.getImageData(0, 0, w, h).data;
             const hint = new Uint8Array(w * h);
             for (let i = 0; i < w * h; i++) if (hd[i * 4 + 3] > 40) hint[i] = hd[i * 4 + 1] > hd[i * 4] ? 1 : 2;
-            PH.mask = DA.BgRemove.computeMask(PH.wctx.getImageData(0, 0, w, h), {
-              strength: +$('phStrength').value, hints: hint, fillHoles: $('phFillHoles').checked,
-              aiMask: ai, aiWeight: DA.AI ? DA.AI.weight : 0.45
-            });
+            const opts = { strength: +$('phStrength').value, hints: hint, fillHoles: $('phFillHoles').checked };
+            PH.mask = ai ? DA.BgRemove.refineAI(ai, w, h, opts) : DA.BgRemove.computeMask(PH.wctx.getImageData(0, 0, w, h), opts);
           }
           PH.result = DA.BgRemove.applyMask(PH.full, PH.mask, w, h);
           drawView();
+          engineInfo();
         } catch (err) {
           console.error(err);
           DA.toast('Something went wrong while cutting out the picture');
@@ -518,7 +560,7 @@
       else vctx.drawImage(PH.result, 0, 0);
     }
 
-    ['phStrength', 'phFillHoles', 'phOff', 'phAI'].forEach((id) => $(id).addEventListener('change', recompute));
+    ['phStrength', 'phFillHoles', 'phOff'].forEach((id) => $(id).addEventListener('change', recompute));
     $('phShowOrig').addEventListener('change', drawView);
     $('phReset').addEventListener('click', () => {
       PH.undo.push(hctx.getImageData(0, 0, hints.width, hints.height));
@@ -694,7 +736,7 @@
 
   /* ================= photo sources: chooser, paste, camera ================= */
   function setupPhotoSources() {
-    $('photoChooser').addEventListener('modal-open', () => DA.AI && DA.AI.warmUp());
+    $('photoChooser').addEventListener('modal-open', () => DA.AI && DA.AI.warmUp(state.settings.remover));
     $('pcFile').addEventListener('click', () => $('photoInput').click());
     $('pcCamera').addEventListener('click', openCamera);
     $('pcPaste').addEventListener('click', pasteFromClipboard);

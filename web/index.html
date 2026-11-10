@@ -226,20 +226,23 @@
             <canvas id="phView"></canvas>
             <canvas id="phHints"></canvas>
           </div>
-          <div class="busy" id="phBusy"><div class="spinner"></div>✨ Finding your creature…</div>
+          <div class="busy" id="phBusy"><div class="spinner"></div><span id="phBusyText">✨ Finding your creature…</span></div>
         </div>
         <aside class="pad-tools">
+          <label class="field engine-field adult-only" id="phEngineRow">Background remover
+            <select id="phEngine" class="engine-select"></select>
+            <small class="muted" id="phEngineInfo"></small>
+          </label>
           <div class="tool-row seg" role="radiogroup" aria-label="Touch-up brush">
             <button class="seg-btn active" data-ph="keep" role="radio" aria-checked="true">✅<span>Keep</span></button>
             <button class="seg-btn" data-ph="remove" role="radio" aria-checked="false">❌<span>Remove</span></button>
           </div>
           <p class="muted small adult-only">Scribble on parts that were cut wrongly – green keeps, red removes.</p>
           <p class="kid-only kid-hint">✅ Paint what to keep · ❌ Paint what to remove</p>
-          <label class="field adult-only">Background removal strength
+          <label class="field adult-only">Cut strength (higher removes more)
             <input type="range" id="phStrength" min="0" max="100" value="50">
           </label>
           <details class="more-opts adult-only" id="phMore"><summary>More options</summary>
-          <label class="switch"><input type="checkbox" id="phAI" checked><span class="track"></span> ✨ Smart AI cut-out</label>
           <label class="switch"><input type="checkbox" id="phFillHoles" checked><span class="track"></span> Keep areas inside the outline</label>
           <label class="switch"><input type="checkbox" id="phOff"><span class="track"></span> Keep the whole photo (no cut-out)</label>
           <label class="switch"><input type="checkbox" id="phShowOrig"><span class="track"></span> Show original</label>

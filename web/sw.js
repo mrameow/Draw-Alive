@@ -1,5 +1,5 @@
 /* Draw Alive service worker – makes the web app work offline. */
-const CACHE = 'draw-alive-v5';
+const CACHE = 'draw-alive-v6';
 const ASSETS = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/util.js', 'js/environments.js', 'js/templates.js', 'js/bgremove.js', 'js/ai.js', 'js/drawpad.js', 'js/world.js', 'js/sound.js', 'js/share.js', 'js/app.js',
@@ -15,6 +15,8 @@ self.addEventListener('activate', (e) => {
 // network first (so updates arrive), falling back to the cache when offline
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  // big optional AI models are stored by the app itself – don't keep a second copy here
+  if (/\/models\/(?!u2netp)/.test(new URL(e.request.url).pathname)) return;
   e.respondWith(
     fetch(e.request).then((res) => {
       const copy = res.clone();

@@ -115,6 +115,16 @@ async function run(viewport, tag) {
   const cut = await page.evaluate(() => { const m = document.getElementById('phView').getContext('2d').getImageData(0, 0, 640, 480).data; let t = 0; for (let i = 3; i < m.length; i += 4) if (m[i] < 10) t++; return t / (640 * 480); });
   check(cut > 0.35, `photo background removed (${Math.round(cut * 100)}% transparent)`);
   check(await page.evaluate(() => !!window.ort && !DA.AI.broken), 'offline AI (rembg U²-Net-P) helped with the cut-out');
+  if (!phone) {
+    const engines = await page.$$eval('#phEngine option', (os) => os.map((o) => o.value));
+    check(engines.join() === 'u2netp,silueta,isnet,isnet-anime,classic' && (await page.inputValue('#phEngine')) === 'u2netp', 'background remover picker offers 5 removers (built-in Quick AI selected): ' + engines.join(', '));
+    await page.selectOption('#phEngine', 'classic');
+    await page.waitForTimeout(300);
+    await page.waitForFunction(() => !document.getElementById('phBusy').classList.contains('show'), null, { timeout: 20000 });
+    check(/colours/.test(await page.textContent('#phEngineInfo')), 'switching to the Classic remover works');
+    await page.selectOption('#phEngine', 'u2netp');
+    await page.waitForFunction(() => !document.getElementById('phBusy').classList.contains('show'), null, { timeout: 20000 });
+  }
   await page.click('#phAdd');
   await page.waitForTimeout(500);
   check(await page.evaluate(() => DA.App.currentScene().creatures.length) === 3, 'photo became a creature');

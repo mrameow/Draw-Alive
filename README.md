@@ -24,13 +24,22 @@ no accounts, no servers, and nothing leaves your device.
 | 🖼️ **Save picture** | Export a snapshot of your world as a PNG (on Android it opens the share sheet). |
 | ✨ Extras | Pause/play, full screen, “make everyone jump” party button, rename/duplicate/delete worlds, keyboard shortcuts, Android back button closes dialogs, works offline as an installable web app. |
 
-### Background remover: classic + offline AI
-Photos are cut out by two methods working together, entirely on the device (no internet, nothing uploaded):
+### Background remover: choose one of 5
+The **Cut out your creature** screen has a **Background remover** picker, so different removers can be tried on the same photo. All of them run on the device; photos are never uploaded.
 
-1. **AI:** rembg's **U²-Net-P** model ([danielgatis/rembg](https://github.com/danielgatis/rembg), Apache-2.0, 4.6 MB) runs in the app with [ONNX Runtime Web](https://onnxruntime.ai/) (WebAssembly). It guesses which pixels belong to the main object.
-2. **Classic:** colour models learned from the photo's border, an edge-aware flood fill and smoothing (see below). Everything enclosed by an outline is kept, which is what drawings on paper need.
+| Remover | Size | Notes |
+|---|---|---|
+| ⚡ Quick AI – U²-Net-P | 4.6 MB, built in | Default. Works offline straight away. Fast. |
+| ⭐ Silueta | 44 MB, downloads once | Best all-round in our tests on real photos and drawings on paper. |
+| 🔍 IS-Net general | 46 MB, downloads once | Very detailed, sometimes keeps extra background. Slow (≈10 s desktop, longer on phones). |
+| 🎨 IS-Net Anime | 44 MB, downloads once | For cartoon/anime pictures only. Slow. |
+| 🖌️ Classic | – | Colours and outlines only, no AI. For drawings on plain paper. |
 
-The AI's guess is used as a strong hint inside the classic method, not on its own. In tests (overlap with the true outline, 1.0 = perfect) the combination scored 0.89–0.99 on every test picture. AI alone dropped to 0.24 on a drawing on paper, and classic alone dropped to 0.61 on a busy room. Larger rembg models (silueta 44 MB, isnet 179 MB) were tested too. They weren't better in the combination and would have made the app much bigger. The AI can be switched off under **More options → Smart AI cut-out**. If a device can't run it, the classic method is used automatically. It adds about 20 MB to the app.
+The AI models come from [rembg](https://github.com/danielgatis/rembg) (Apache-2.0 weights) and run with [ONNX Runtime Web](https://onnxruntime.ai/). The IS-Net models are 8-bit compressed by CI (`scripts/quantize-model.py`). The downloadable models are published on this repo's GitHub Pages site by the build. After one download they're stored on the device and work offline.
+
+For every AI remover, the AI leads. The app then fills enclosed areas (the white inside a drawing on paper, under **More options → Keep areas inside the outline**), drops stray specks, and applies the **Keep / Remove** scribbles and the **Cut strength** slider.
+
+[Netesh5/image_background_remover](https://github.com/Netesh5/image_background_remover) was checked: it ships the same U²-Net-P model file as the Quick AI option. BiRefNet-lite (224 MB) and BRIA RMBG-2.0 (≈1 GB, non-commercial licence) were considered too big and slow for phones.
 
 ### What changed from the original
 * **Background remover rebuilt.** The old version averaged the 4 corner pixels and deleted every pixel within a fixed colour distance. That fails on gradients, textures, shadows, two-tone backgrounds (wall + table) and white paper. The new one learns the background colours from the whole border (k-means in Lab colour space), flood-fills inwards while stopping at edges, scores each pixel against foreground and background colour models, smooths the result with edge-aware diffusion, then removes specks, fills holes and feathers the edges. On test images the overlap with the true outline (IoU) went from **0.18–0.76** with the old method to **0.98** with the new one.
