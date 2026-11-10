@@ -178,6 +178,7 @@
       switchScene(copy.id);
       DA.toast(s.remote ? 'Saved a copy of the shared world on this device' : 'Scene duplicated');
     } else if (act === 'photo') { pendingBg = 'current'; $('bgInput').click(); }
+    else if (act === 'names') { state.settings.showNames = !state.settings.showNames; syncInteractLabel(); scheduleSave(); DA.toast(state.settings.showNames ? '🏷️ Names are shown under the creatures' : 'Names hidden'); }
     else if (act === 'interact') { state.settings.interact = !state.settings.interact; syncInteractLabel(); scheduleSave(); DA.toast(state.settings.interact ? '🤝 Creatures will play together' : 'Creatures will keep to themselves'); }
     else if (act === 'focus') setFocus(true);
     else if (act === 'share') DA.Share.open();
@@ -261,6 +262,7 @@
     $('cpCopy').addEventListener('click', () => { const c = sel(); if (c) DA.World.select(DA.World.duplicate(c)); });
     $('cpFront').addEventListener('click', () => { const c = sel(); if (c) DA.World.bringToFront(c); });
     $('cpTrick').addEventListener('click', () => { const c = sel(); if (c) DA.World.trick(c); });
+    $('cpEdit').addEventListener('click', () => { const c = sel(); if (c) editCreature(c); });
     $('cpSave').addEventListener('click', () => { const c = sel(); if (c) DA.saveDataURL(c.sprite, safeName(c.name || 'creature') + '.png'); });
     $('cpDelete').addEventListener('click', deleteSelected);
     const resize = (k) => { const c = sel(); if (!c) return; c.scale = DA.clamp((c.scale || 1) * k, 0.5, 2.5); DA.Sound.play(k > 1 ? 'pop' : 'boing'); scheduleSave(); };
@@ -313,6 +315,26 @@
       setTimeout(() => h.classList.remove('show'), 4500);
     }
     return env;
+  }
+
+  /* ================= editing a creature in the drawing pad ================= */
+  let editing = null; // { c, scene }
+  async function editCreature(c) {
+    try {
+      const img = await DA.loadImage(c.sprite);
+      editing = { c, scene: currentScene() };
+      DA.World.select(null);
+      DA.Pad.loadSprite(img);
+      $('padAnimate').textContent = '✅ Save changes';
+      $('drawTitle').textContent = `✏️ Edit ${c.name || 'creature'}`;
+      DA.openModal('drawModal');
+    } catch (e) {
+      DA.toast('Sorry, this creature cannot be edited');
+    }
+  }
+  function stopEditing() {
+    editing = null;
+    $('padAnimate').textContent = '✨ Bring to life!';
   }
 
   /* ================= drawing pad ================= */
@@ -372,6 +394,18 @@
     $('padAnimate').addEventListener('click', () => {
       const res = DA.Pad.exportCreature();
       if (!res) { DA.toast('Draw something first! 🎨'); return; }
+      if (editing) {
+        const { c, scene } = editing;
+        stopEditing();
+        if (scene.creatures.includes(c)) {
+          DA.World.updateSprite(c, res.canvas);
+          DA.Sound.play('magic');
+          DA.toast(`✨ ${c.name || 'Your creature'} is updated!`);
+        }
+        DA.Pad.reset();
+        DA.closeModal('drawModal');
+        return;
+      }
       const tpl = res.template ? DA.TEMPLATES.find((t) => t.id === res.template) : null;
       bringToLife(res.canvas, { name: res.name, kind: tpl ? tpl.cat : null, move: tpl ? tpl.move : null, speed: tpl && tpl.speed });
       DA.Pad.reset();
@@ -380,7 +414,7 @@
 
     document.addEventListener('pad-template', (e) => {
       const t = e.detail;
-      $('drawTitle').textContent = t ? `🖍️ Colour the ${t.name}` : '🎨 Draw a creature';
+      $('drawTitle').textContent = editing ? `✏️ Edit ${editing.c.name || 'creature'}` : t ? `🖍️ Colour the ${t.name}` : '🎨 Draw a creature';
       $('stayInsideRow').style.display = t ? '' : 'none';
       $('solidInsideRow').style.display = t ? 'none' : '';
       $('padTip').innerHTML = t ? 'Tip: use <b>🪣 Fill</b> to colour a whole area in one tap.' : 'Draw your creature facing <b>left ←</b> so it walks the right way.';
@@ -388,6 +422,8 @@
     });
     document.dispatchEvent(new CustomEvent('pad-template', { detail: null }));
     $('drawModal').addEventListener('modal-open', () => requestAnimationFrame(() => DA.Pad.fit()));
+    // closing the pad while editing cancels the edit (the creature stays as it was)
+    $('drawModal').addEventListener('modal-close', () => { if (editing) { stopEditing(); DA.Pad.reset(); } });
   }
 
   /* ================= templates ================= */
@@ -482,19 +518,18 @@
       Object.keys(DA.AI.ENGINES).forEach((id) => {
         const o = document.createElement('option'); o.value = id; o.textContent = DA.AI.ENGINES[id].label; engineSel.appendChild(o);
       });
-      const c = document.createElement('option'); c.value = 'classic'; c.textContent = '🖌️ Classic – colours only (no AI)'; engineSel.appendChild(c);
-      engineSel.value = DA.AI.ENGINES[state.settings.remover] || state.settings.remover === 'classic' ? state.settings.remover : 'u2netp';
+      engineSel.value = DA.AI.ENGINES[state.settings.remover] ? state.settings.remover : 'u2netp';
     }
     async function engineInfo() {
       const id = engineSel.value, e = DA.AI.ENGINES[id];
-      if (!e) { $('phEngineInfo').textContent = 'Uses colours and outlines only – good for drawings on plain paper.'; return; }
+      if (!e) { $('phEngineInfo').textContent = ''; return; }
       const have = await DA.AI.isDownloaded(id);
       $('phEngineInfo').textContent = e.bundled ? '✓ Built in, works offline.' : have ? '✓ Downloaded – works offline.' : `Downloads ${e.mb} MB once (needs internet), then works offline.${e.slow ? ' Slow: up to ~30 s on phones.' : ''}`;
     }
     engineList(); engineInfo();
     $('photoModal').addEventListener('modal-open', () => {
       const want = state.settings.remover;
-      engineSel.value = DA.AI.ENGINES[want] || want === 'classic' ? want : 'u2netp';
+      engineSel.value = DA.AI.ENGINES[want] ? want : 'u2netp';
       engineInfo();
     });
     engineSel.addEventListener('change', () => {
@@ -909,6 +944,8 @@
   const overviewOpen = () => $('overview').classList.contains('open');
 
   function syncInteractLabel() {
+    $('menuNames').textContent = '🏷️ Show creature names: ' + (state.settings.showNames ? 'On' : 'Off');
+    DA.World.setShowNames(state.settings.showNames);
     $('menuInteract').textContent = '🤝 Creatures play together: ' + (state.settings.interact ? 'On' : 'Off');
     DA.World.setInteract(state.settings.interact);
   }

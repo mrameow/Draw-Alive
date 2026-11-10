@@ -26,7 +26,7 @@
     guests: new Map(),   // host: clientId -> { name, conn, scenes:Set }
     conn: null,          // guest: connection to host
     shared: new Set(),   // guest: ids of local scenes being shared
-    sentSprites: new Set(),
+    sentSprites: new Map(), // creature id -> picture fingerprint the main screen has
     lastSent: new Map(),
     retry: null, sendTimer: null, joinCode: null, active: false
   };
@@ -98,11 +98,13 @@
   const MOTIONS_OK = ['auto', 'swim', 'walk', 'roam', 'hop', 'bounce', 'slither', 'dash', 'fly', 'float'];
 
   /* ---------------- shared sync helpers (both directions) ---------------- */
+  /** Short fingerprint of a creature picture, so an edited drawing is sent again. */
+  const sig = (sp) => (sp ? sp.length + ':' + sp.slice(-24) : '');
   /** Fingerprint of what we sync (not positions, which each screen animates itself). */
   function sceneKey(sc) {
     return JSON.stringify({
       n: sc.name, t: sc.type, sd: sc.seed, m: sc.motion || null, b: sc.bgImage ? sc.bgImage.length : 0,
-      c: sc.creatures.map((c) => [c.id, c.name, c.kind || null, c.move || null, c.w, c.h, c.scale, c.speed, c.facing, c.motion])
+      c: sc.creatures.map((c) => [c.id, c.name, c.kind || null, c.move || null, c.w, c.h, c.scale, c.speed, c.facing, c.motion, sig(c.sprite)])
     });
   }
   /** Message for a world. Sprites (big) are only included for creatures the other side does not have yet. */
@@ -111,7 +113,7 @@
       id, name: sc.name, type: sc.type, seed: sc.seed, motion: sc.motion || null, bgImage: sc.type === 'custom' ? sc.bgImage : null,
       creatures: sc.creatures.map((c) => {
         const o = { id: c.id, name: c.name, kind: c.kind || null, move: c.move || null, w: c.w, h: c.h, scale: c.scale, speed: c.speed, facing: c.facing, motion: c.motion };
-        if (!known.has(c.id)) { o.sprite = c.sprite; o.x = c.x; o.y = c.y; }
+        if (known.get(c.id) !== sig(c.sprite)) { o.sprite = c.sprite; if (!known.has(c.id)) { o.x = c.x; o.y = c.y; } }
         return o;
       })
     };
@@ -127,7 +129,7 @@
       if (!cid) return;
       if (isImg(c.sprite)) spriteCache.set(cid, c.sprite);
       let cur = byId.get(cid);
-      const sprite = spriteCache.get(cid) || (cur && cur.sprite);
+      const sprite = isImg(c.sprite) ? c.sprite : (cur && cur.sprite) || spriteCache.get(cid);
       if (!sprite) return;
       if (!cur) cur = { id: cid, x: num(c.x, 0, 1, 0.5), y: num(c.y, 0, 1, 0.5), _new: true };
       if (cur.sprite !== sprite) { cur.sprite = sprite; cur._img = null; cur._alpha = null; }
@@ -171,7 +173,7 @@
   }
 
   function onGuestConnection(conn) {
-    const g = { conn, name: 'Friend', id: null, scenes: new Set(), sprites: new Map(), lastKey: new Map(), known: new Set() };
+    const g = { conn, name: 'Friend', id: null, scenes: new Set(), sprites: new Map(), lastKey: new Map(), known: new Map() };
     conn.on('data', (msg) => {
       try { onGuestData(g, msg); } catch (e) { console.warn('Bad message from guest', e); }
     });
@@ -242,8 +244,8 @@
     if (type === 'custom' && isImg(data.bgImage) && data.bgImage !== s.bgImage) { s.bgImage = data.bgImage; s._bgImg = null; }
     s.remote = { owner: g.name, guest: g.id, online: true };
 
-    const ids = mergeCreatures(s, data.creatures, g.sprites);
-    ids.forEach((cid) => g.known.add(cid));
+    mergeCreatures(s, data.creatures, g.sprites);
+    s.creatures.forEach((c) => g.known.set(c.id, sig(c.sprite)));
     g.lastKey.set(sid, sceneKey(s)); // what the guest has now – no need to send it back
     DA.App.refresh();
     if (isNew) DA.toast(`📡 ${g.name} shared “${s.name}”`);
@@ -262,7 +264,7 @@
         if (g.lastKey.get(sid) === key) return;
         try { g.conn.send({ t: 'scene', scene: buildPayload(sc, sid, g.known) }); } catch (e) { return; }
         g.lastKey.set(sid, key);
-        sc.creatures.forEach((c) => g.known.add(c.id));
+        sc.creatures.forEach((c) => g.known.set(c.id, sig(c.sprite)));
       });
     });
   }
@@ -320,7 +322,7 @@
     S.conn = conn;
     conn.on('open', () => {
       S.everConnected = true;
-      S.sentSprites = new Set(); S.lastSent = new Map();
+      S.sentSprites = new Map(); S.lastSent = new Map();
       conn.send({ t: 'hello', client: clientId(), name: S.myName, app: 1 });
       sendAll();
       setGuestStatus(DA.App.isKids() ? '✅ Yay! Your world is on the big screen!' : `✅ Connected! Your world${S.shared.size > 1 ? 's are' : ' is'} on the main screen. Keep drawing – changes appear live.`, 'ok');
@@ -359,7 +361,7 @@
     if (S.lastSent.get(sc.id) === key) return;
     S.conn.send({ t: 'scene', scene: buildPayload(sc, sc.id, S.sentSprites) });
     S.lastSent.set(sc.id, key);
-    sc.creatures.forEach((c) => S.sentSprites.add(c.id));
+    sc.creatures.forEach((c) => S.sentSprites.set(c.id, sig(c.sprite)));
   }
 
   /** The main screen changed one of my shared worlds → apply it here. */
@@ -371,8 +373,8 @@
     if (!sc) return;
     const before = sc.creatures.length;
     if (typeof data.name === 'string' && data.name.trim()) sc.name = str(data.name, 28);
-    const ids = mergeCreatures(sc, data.creatures, S.hostSprites || (S.hostSprites = new Map()));
-    ids.forEach((cid) => S.sentSprites.add(cid));
+    mergeCreatures(sc, data.creatures, S.hostSprites || (S.hostSprites = new Map()));
+    sc.creatures.forEach((c) => S.sentSprites.set(c.id, sig(c.sprite)));
     S.lastSent.set(sc.id, sceneKey(sc)); // already in sync – don't echo it back
     DA.App.refresh();
     if (sc.creatures.length > before && DA.Sound) DA.Sound.play('magic');

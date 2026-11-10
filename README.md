@@ -20,26 +20,21 @@ no accounts, no servers, and nothing leaves your device.
 | 📡 **Share between devices** | Make one device the **main screen** (📡 Share → Be the main screen). It shows a 4-letter code and a QR code. On other phones, tablets or computers, tap 📡 Share → Send my world, type the code (or scan the QR code) and pick which worlds to send. Each world appears on the main screen as a 📡 tab and stays in sync both ways: changes on the sending device show up on the main screen, and creatures added, edited or removed on the main screen show up on the sending device. Devices connect directly with WebRTC (PeerJS), so there's nothing to install or host. Shared worlds are not saved on the main screen. |
 | 🧒 **Kids mode** | The 🧒 button at the top (or ⋮ → Kids mode). Big buttons and only what kids need: Draw, Colour-in, Photo, **My world** (they have one world and can change its background), and **Send** (sends their world to a main screen; it can't host). Kids use the same drawing and colour-in screen as normal mode. Kids mode uses the world that was on screen when it was turned on. Tapping a creature gives Bigger, Smaller, Turn, Trick and Bye! (with a confirmation). Fun sounds can be muted with 🔊. Kids mode stays on after the app restarts, the Android Back button won't quit, and tapping 🔒 asks “Leave kids mode?” with Yes / No. |
 | 👁️ **Only worlds** | The ⤢ button (or ⋮ → Show only the worlds, or "Only worlds" in the overview) hides every button and panel so just the environment, or all of them in the overview, fills the screen. Move the mouse or tap to show the small "Show buttons" button (and "All worlds" to go back to the overview after opening one world); Esc also works. |
+| ✏️ **Edit creatures** | Tap a creature → **✏️ Edit** opens its drawing in the pad. Change it and press **Save changes**; it keeps its name, size and place. Edits also sync to and from shared worlds. |
+| 🏷️ **Names** | ⋮ → **Show creature names** puts a name tag under every creature. |
 | 💾 **Saves automatically** | Everything is stored on the device (IndexedDB) and comes back next time. |
 | 🖼️ **Save picture** | Export a snapshot of your world as a PNG (on Android it opens the share sheet). |
 | ✨ Extras | Pause/play, full screen, “make everyone jump” party button, rename/duplicate/delete worlds, keyboard shortcuts, Android back button closes dialogs, works offline as an installable web app. |
 
-### Background remover: choose one of 5
-The **Cut out your creature** screen has a **Background remover** picker, so different removers can be tried on the same photo. All of them run on the device; photos are never uploaded.
+### Background remover: Quick AI or Silueta
+The **Cut out your creature** screen has a **Background remover** picker. Both run on the device; photos are never uploaded.
 
 | Remover | Size | Notes |
 |---|---|---|
 | ⚡ Quick AI – U²-Net-P | 4.6 MB, built in | Default. Works offline straight away. Fast. |
-| ⭐ Silueta | 44 MB, downloads once | Best all-round in our tests on real photos and drawings on paper. |
-| 🔍 IS-Net general | 46 MB, downloads once | Very detailed, sometimes keeps extra background. Slow (≈10 s desktop, longer on phones). |
-| 🎨 IS-Net Anime | 44 MB, downloads once | For cartoon/anime pictures only. Slow. |
-| 🖌️ Classic | – | Colours and outlines only, no AI. For drawings on plain paper. |
+| ⭐ Silueta | 44 MB, downloads once | Best all-round in our tests, especially drawings on paper. Works offline after the download. |
 
-The AI models come from [rembg](https://github.com/danielgatis/rembg) (Apache-2.0 weights) and run with [ONNX Runtime Web](https://onnxruntime.ai/). The IS-Net models are 8-bit compressed by CI (`scripts/quantize-model.py`). The downloadable models live in the top-level `models/` folder. They're served by GitHub Pages, with raw.githubusercontent.com as a backup, and are not bundled into the `.exe` / `.apk`. After one download they're stored on the device and work offline.
-
-For every AI remover, the AI leads. The app then fills enclosed areas (the white inside a drawing on paper, under **More options → Keep areas inside the outline**), drops stray specks, and applies the **Keep / Remove** scribbles and the **Cut strength** slider.
-
-[Netesh5/image_background_remover](https://github.com/Netesh5/image_background_remover) was checked: it ships the same U²-Net-P model file as the Quick AI option. BiRefNet-lite (224 MB) and BRIA RMBG-2.0 (≈1 GB, non-commercial licence) were considered too big and slow for phones.
+Both models come from [rembg](https://github.com/danielgatis/rembg) (Apache-2.0 weights) and run with [ONNX Runtime Web](https://onnxruntime.ai/). Silueta lives in the top-level `models/` folder. It's served by GitHub Pages (raw.githubusercontent.com as a backup) and is not bundled into the `.exe` / `.apk`. The AI leads. The app then fills enclosed areas (the white inside a drawing on paper), drops stray specks, and applies the **Keep / Remove** scribbles and **Cut strength**. If a device can't run the AI, a colour-based remover is used automatically.
 
 ### What changed from the original
 * **Background remover rebuilt.** The old version averaged the 4 corner pixels and deleted every pixel within a fixed colour distance. That fails on gradients, textures, shadows, two-tone backgrounds (wall + table) and white paper. The new one learns the background colours from the whole border (k-means in Lab colour space), flood-fills inwards while stopping at edges, scores each pixel against foreground and background colour models, smooths the result with edge-aware diffusion, then removes specks, fills holes and feathers the edges. On test images the overlap with the true outline (IoU) went from **0.18–0.76** with the old method to **0.98** with the new one.

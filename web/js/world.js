@@ -36,6 +36,7 @@
   let drag = null;
   let overview = null;       // { tiles: [{scene, canvas, ctx, w, h}] }
   let interact = true;
+  let showNames = false;
   const listeners = {};
 
   function emit(name, data) { (listeners[name] || []).forEach((fn) => fn(data)); }
@@ -267,6 +268,7 @@
     ctx.drawImage(img, -d.w / 2, -d.h / 2, d.w, d.h);
     ctx.restore();
 
+    if (showNames && c.name) drawName(c.name, c.x * W, c.y * H + d.h * 0.5 * sp + 4);
     if (rt.bubble) drawBubble(rt.bubble, x + d.w * 0.25, y - d.h * 0.5 * sp - 6);
 
     if (c === selected && mainView) {
@@ -281,6 +283,24 @@
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  /** Little name tag under a creature. */
+  function drawName(name, x, y) {
+    const fs = DA.clamp(Math.min(W, H) / 38, 9, 15);
+    ctx.save();
+    ctx.font = `800 ${fs}px ui-rounded, "Segoe UI", system-ui, sans-serif`;
+    const label = name.length > 18 ? name.slice(0, 17) + '…' : name;
+    const tw = ctx.measureText(label).width, ph = fs * 1.6, pw = tw + fs * 1.2;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1;
+    roundRect(ctx, x - pw / 2, y, pw, ph, ph / 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = '#1f1d3a';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y + ph / 2 + 0.5);
+    ctx.restore();
   }
 
   function drawBubble(b, x, y) {
@@ -576,6 +596,16 @@
       emit('change');
       return c;
     },
+    /** Replace a creature's picture after it was edited (keeps name, size, position, movement). */
+    updateSprite(c, canvasSprite) {
+      setMain();
+      c.sprite = canvasSprite.toDataURL('image/png');
+      c.w = canvasSprite.width; c.h = canvasSprite.height;
+      c._img = canvasSprite;
+      buildAlphaFromCanvas(c, canvasSprite);
+      if (scene && scene.creatures.includes(c)) { burst(c.x * W, c.y * H, 24); const rt = ensureRuntime(c); rt.hop = 1; say(c, '✨', 1.4); }
+      emit('change');
+    },
     duplicate(c) {
       setMain();
       const copy = Object.assign({}, c, { id: DA.uid(), x: DA.clamp(c.x + 0.06, 0.05, 0.95), _rt: null, _new: true });
@@ -616,6 +646,8 @@
     setPaused(v) { paused = v; },
     get paused() { return paused; },
     setInteract(v) { interact = !!v; },
+    setShowNames(v) { showNames = !!v; },
+    get showNames() { return showNames; },
     motionOf(c) { return motionIn(c, scene); },
     /** Overview: animate several scenes at once into their own canvases. */
     setOverview(tiles) {

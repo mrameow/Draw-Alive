@@ -6,7 +6,6 @@
  *  - U²-Net-P (4.6 MB) is built into the app, so it works offline from the start.
  *  - Bigger models are downloaded once from this project's GitHub repository and then
  *    kept on the device (IndexedDB), so they also work offline afterwards.
- *    (The IS-Net models are 8-bit compressed versions of rembg's originals.)
  */
 (function () {
   'use strict';
@@ -15,9 +14,7 @@
   const IMAGENET = { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] };
   const ENGINES = {
     u2netp:        { label: '⚡ Quick AI (U²-Net-P)', note: 'built in · fast', file: 'u2netp.onnx', size: 320, mean: IMAGENET.mean, std: IMAGENET.std, mb: 4.6, bundled: true },
-    silueta:       { label: '⭐ Silueta – best all-round', note: '44 MB, downloads once', file: 'silueta.onnx', size: 320, mean: IMAGENET.mean, std: IMAGENET.std, mb: 44 },
-    isnet:         { label: '🔍 IS-Net – very detailed', note: '46 MB, downloads once · slow', file: 'isnet-general-use-q8.onnx', size: 1024, mean: [0.5, 0.5, 0.5], std: [1, 1, 1], mb: 46, slow: true },
-    'isnet-anime': { label: '🎨 IS-Net Anime – cartoons & drawings', note: '44 MB, downloads once · slow', file: 'isnet-anime-q8.onnx', size: 1024, mean: IMAGENET.mean, std: [1, 1, 1], mb: 44, slow: true }
+    silueta:       { label: '⭐ Silueta – best all-round', note: '44 MB, downloads once', file: 'silueta.onnx', size: 320, mean: IMAGENET.mean, std: IMAGENET.std, mb: 44 }
   };
   // Optional models live in the repository's top-level models/ folder: served by GitHub Pages,
   // with raw.githubusercontent.com (which allows cross-site downloads) as a backup.

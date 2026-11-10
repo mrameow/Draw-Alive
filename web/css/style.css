@@ -431,7 +431,8 @@ body.kids .cp-actions { flex-wrap: nowrap; gap: 8px; }
 body.kids .cp-actions .chip { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 26px; padding: 8px 12px; border-radius: 16px; min-width: 68px; }
 body.kids .cp-actions .chip span, body.kids .cp-actions .chip { line-height: 1.1; }
 .kid-chip span { font-size: 12px; font-weight: 800; }
-body.kids #cpFlip, body.kids #cpTrick, body.kids #cpDelete { font-size: 0; }
+body.kids #cpFlip, body.kids #cpTrick, body.kids #cpDelete, body.kids #cpEdit { font-size: 0; }
+body.kids #cpEdit::before { content: "✏️"; font-size: 26px; } body.kids #cpEdit::after { content: "Edit"; font-size: 12px; font-weight: 800; }
 body.kids #cpFlip::before { content: "↔️"; font-size: 26px; } body.kids #cpFlip::after { content: "Turn"; font-size: 12px; font-weight: 800; }
 body.kids #cpTrick::before { content: "🤸"; font-size: 26px; } body.kids #cpTrick::after { content: "Trick"; font-size: 12px; font-weight: 800; }
 body.kids #cpDelete::before { content: "🗑️"; font-size: 26px; } body.kids #cpDelete::after { content: "Bye!"; font-size: 12px; font-weight: 800; }

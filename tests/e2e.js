@@ -117,13 +117,7 @@ async function run(viewport, tag) {
   check(await page.evaluate(() => !!window.ort && !DA.AI.broken), 'offline AI (rembg U²-Net-P) helped with the cut-out');
   if (!phone) {
     const engines = await page.$$eval('#phEngine option', (os) => os.map((o) => o.value));
-    check(engines.join() === 'u2netp,silueta,isnet,isnet-anime,classic' && (await page.inputValue('#phEngine')) === 'u2netp', 'background remover picker offers 5 removers (built-in Quick AI selected): ' + engines.join(', '));
-    await page.selectOption('#phEngine', 'classic');
-    await page.waitForTimeout(300);
-    await page.waitForFunction(() => !document.getElementById('phBusy').classList.contains('show'), null, { timeout: 20000 });
-    check(/colours/.test(await page.textContent('#phEngineInfo')), 'switching to the Classic remover works');
-    await page.selectOption('#phEngine', 'u2netp');
-    await page.waitForFunction(() => !document.getElementById('phBusy').classList.contains('show'), null, { timeout: 20000 });
+    check(engines.join() === 'u2netp,silueta' && (await page.inputValue('#phEngine')) === 'u2netp', 'background remover picker: Quick AI (default) and Silueta: ' + engines.join(', '));
   }
   await page.click('#phAdd');
   await page.waitForTimeout(500);
@@ -134,6 +128,26 @@ async function run(viewport, tag) {
   await page.waitForTimeout(200);
   check(sel && await page.isVisible('#creaturePanel'), 'creature panel opens');
   await page.screenshot({ path: `${OUT}/${tag}-6-world.png` });
+  // edit the creature in the drawing pad
+  const preEdit = await page.evaluate(() => { const c = DA.App.currentScene().creatures[0]; return { n: DA.App.currentScene().creatures.length, sp: c.sprite.length, id: c.id }; });
+  await page.click('#cpEdit');
+  await page.waitForTimeout(400);
+  check(await page.isVisible('#drawModal') && /Edit/.test(await page.textContent('#drawTitle')) && !(await page.evaluate(() => DA.Pad.isEmpty())), 'tapping Edit opens the creature in the drawing pad');
+  check((await page.textContent('#padAnimate')).includes('Save'), 'the button says "Save changes" while editing');
+  const eb = await page.locator('#padPaint').boundingBox();
+  await page.mouse.move(eb.x + eb.width * 0.2, eb.y + eb.height * 0.2); await page.mouse.down(); await page.mouse.move(eb.x + eb.width * 0.5, eb.y + eb.height * 0.3, { steps: 8 }); await page.mouse.up();
+  await page.click('#padAnimate');
+  await page.waitForTimeout(400);
+  const afterEdit = await page.evaluate((id) => { const c = DA.App.currentScene().creatures.find((x) => x.id === id); return { n: DA.App.currentScene().creatures.length, sp: c ? c.sprite.length : 0 }; }, preEdit.id);
+  check(afterEdit.n === preEdit.n && afterEdit.sp !== preEdit.sp && !(await page.isVisible('#drawModal')), 'saving changes updates the same creature (no new one)');
+  check((await page.textContent('#padAnimate')).includes('Bring to life'), 'drawing pad is back to normal after editing');
+  // names in the ⋮ menu
+  await menuAct('names');
+  await page.waitForTimeout(200);
+  check(await page.evaluate(() => DA.World.showNames) && /On/.test(await page.textContent('#menuNames')), '⋮ menu can show creature names');
+  await page.screenshot({ path: `${OUT}/${tag}-6b-names.png` });
+  await page.evaluate(() => DA.World.select(DA.App.currentScene().creatures[0]));
+  await page.waitForTimeout(150);
   await page.click('#cpCopy');
   check(await page.evaluate(() => DA.App.currentScene().creatures.length) === 4, 'duplicate creature');
   await page.click('#cpDelete');

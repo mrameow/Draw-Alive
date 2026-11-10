@@ -97,6 +97,15 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await host.click('#cpDelete');
     await guest.waitForFunction(() => DA.App.currentScene().creatures.length === 2, null, { timeout: 8000 }).catch(() => {});
     check(await guest.evaluate(() => DA.App.currentScene().creatures.length) === 2, 'delete on the main screen syncs to the guest');
+    // an edited drawing travels too (both directions)
+    const pic = () => { const c = DA.App.currentScene().creatures[0]; const cv = DA.makeCanvas(60, 40); const x = cv.getContext('2d'); x.fillStyle = '#e63946'; x.fillRect(5, 5, 50, 30); return { id: c.id, cv }; };
+    const gId = await guest.evaluate((f) => { const { id, cv } = eval(f)(); const c = DA.App.currentScene().creatures.find((x) => x.id === id); DA.World.updateSprite(c, cv); return id; }, '(' + pic.toString() + ')');
+    await host.waitForFunction((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 60), gId, { timeout: 8000 }).catch(() => {});
+    check(await host.evaluate((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 60), gId), 'a creature edited on the guest is updated on the main screen');
+    const hId = await host.evaluate(() => { const c = DA.App.currentScene().creatures[1]; const cv = DA.makeCanvas(70, 30); cv.getContext('2d').fillRect(0, 0, 70, 30); DA.World.updateSprite(c, cv); return c.id; });
+    await guest.waitForFunction((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 70), hId, { timeout: 8000 }).catch(() => {});
+    check(await guest.evaluate((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 70), hId), 'a creature edited on the main screen is updated on the guest');
+
     // no ping-pong: once in sync, nothing keeps bouncing between the devices
     const counter = () => { window.__r = 0; const f = DA.App.refresh; DA.App.refresh = function () { window.__r++; return f.apply(this, arguments); }; };
     await host.evaluate(counter); await guest.evaluate(counter);

@@ -84,6 +84,19 @@
       S.undo = []; S.redo = []; S.dirty = false;
       updateHistoryButtons();
     },
+    /** Load an existing creature picture to edit it (centred, as large as fits). */
+    loadSprite(src) {
+      pctx.clearRect(0, 0, PW, PH);
+      setTemplateInternal(null);
+      S.undo = []; S.redo = []; S.dirty = false;
+      const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
+      if (w && h) {
+        const k = Math.min((PW * 0.84) / w, (PH * 0.84) / h, 3);
+        pctx.imageSmoothingQuality = 'high';
+        pctx.drawImage(src, (PW - w * k) / 2, (PH - h * k) / 2, w * k, h * k);
+      }
+      updateHistoryButtons();
+    },
     async setTemplate(t) {
       pushUndo();
       pctx.clearRect(0, 0, PW, PH);
