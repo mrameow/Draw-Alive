@@ -63,30 +63,8 @@ jobs:
           cp -r web/. _site/
           cp -r web _site/web
           touch _site/.nojekyll
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Cache downloadable background-remover models
-        uses: actions/cache@v4
-        with:
-          path: extra-models
-          key: rembg-models-v1
-      - name: Prepare downloadable background-remover models (rembg)
-        run: |
-          mkdir -p extra-models && cd extra-models
-          base=https://github.com/danielgatis/rembg/releases/download/v0.0.0
-          [ -f silueta.onnx ] || curl -sSfL -o silueta.onnx $base/silueta.onnx
-          if [ ! -f isnet-general-use-q8.onnx ] || [ ! -f isnet-anime-q8.onnx ]; then
-            pip install -q onnx onnxruntime
-            curl -sSfL -o isnet-general-use.onnx $base/isnet-general-use.onnx
-            curl -sSfL -o isnet-anime.onnx $base/isnet-anime.onnx
-            python ../scripts/quantize-model.py isnet-general-use.onnx isnet-general-use-q8.onnx
-            python ../scripts/quantize-model.py isnet-anime.onnx isnet-anime-q8.onnx
-            rm -f isnet-general-use.onnx isnet-anime.onnx
-          fi
-          ls -la
-          cd ..
-          cp extra-models/*.onnx _site/models/
+      - name: Add the optional background-remover models to the site
+        run: cp models/*.onnx _site/models/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

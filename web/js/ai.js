@@ -4,7 +4,7 @@
  * ONNX Runtime Web (WebAssembly). Photos never leave the device.
  *
  *  - U²-Net-P (4.6 MB) is built into the app, so it works offline from the start.
- *  - Bigger models are downloaded once from the app's GitHub Pages site and then
+ *  - Bigger models are downloaded once from this project's GitHub repository and then
  *    kept on the device (IndexedDB), so they also work offline afterwards.
  *    (The IS-Net models are 8-bit compressed versions of rembg's originals.)
  */
@@ -19,7 +19,9 @@
     isnet:         { label: '🔍 IS-Net – very detailed', note: '46 MB, downloads once · slow', file: 'isnet-general-use-q8.onnx', size: 1024, mean: [0.5, 0.5, 0.5], std: [1, 1, 1], mb: 46, slow: true },
     'isnet-anime': { label: '🎨 IS-Net Anime – cartoons & drawings', note: '44 MB, downloads once · slow', file: 'isnet-anime-q8.onnx', size: 1024, mean: IMAGENET.mean, std: [1, 1, 1], mb: 44, slow: true }
   };
-  const PUBLIC_MODELS = 'https://mrameow.github.io/Draw-Alive/models/';
+  // Optional models live in the repository's top-level models/ folder: served by GitHub Pages,
+  // with raw.githubusercontent.com (which allows cross-site downloads) as a backup.
+  const MODEL_SOURCES = ['https://mrameow.github.io/Draw-Alive/models/', 'https://raw.githubusercontent.com/mrameow/Draw-Alive/main/models/'];
 
   const sessions = {};     // engine id -> Promise<InferenceSession|null>
   const failed = {};
@@ -44,9 +46,9 @@
     return ortPromise;
   }
 
-  function modelBase() {
+  function modelBases() {
     const q = new URLSearchParams(location.search).get('modelbase'); // tests / self-hosting
-    return q ? new URL(q, location.href).href : PUBLIC_MODELS;
+    return q ? [new URL(q, location.href).href] : MODEL_SOURCES;
   }
 
   /** Download a model with progress, keep it on the device for next time. */
@@ -54,8 +56,12 @@
     const key = 'model:' + e.file;
     const cached = await DA.storage.get(key);
     if (cached && cached.byteLength > 1e6) return new Uint8Array(cached);
-    const res = await fetch(modelBase() + e.file);
-    if (!res.ok) throw new Error('Download failed (' + res.status + ')');
+    let res = null, lastErr = null;
+    for (const base of modelBases()) {
+      try { res = await fetch(base + e.file); if (res.ok) break; lastErr = new Error('HTTP ' + res.status); res = null; }
+      catch (err) { lastErr = err; res = null; }
+    }
+    if (!res) throw new Error('Download failed: ' + (lastErr && lastErr.message));
     const total = +res.headers.get('content-length') || e.mb * 1e6;
     let bytes;
     if (res.body && res.body.getReader) {

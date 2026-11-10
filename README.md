@@ -35,7 +35,7 @@ The **Cut out your creature** screen has a **Background remover** picker, so dif
 | 🎨 IS-Net Anime | 44 MB, downloads once | For cartoon/anime pictures only. Slow. |
 | 🖌️ Classic | – | Colours and outlines only, no AI. For drawings on plain paper. |
 
-The AI models come from [rembg](https://github.com/danielgatis/rembg) (Apache-2.0 weights) and run with [ONNX Runtime Web](https://onnxruntime.ai/). The IS-Net models are 8-bit compressed by CI (`scripts/quantize-model.py`). The downloadable models are published on this repo's GitHub Pages site by the build. After one download they're stored on the device and work offline.
+The AI models come from [rembg](https://github.com/danielgatis/rembg) (Apache-2.0 weights) and run with [ONNX Runtime Web](https://onnxruntime.ai/). The IS-Net models are 8-bit compressed by CI (`scripts/quantize-model.py`). The downloadable models live in the top-level `models/` folder. They're served by GitHub Pages, with raw.githubusercontent.com as a backup, and are not bundled into the `.exe` / `.apk`. After one download they're stored on the device and work offline.
 
 For every AI remover, the AI leads. The app then fills enclosed areas (the white inside a drawing on paper, under **More options → Keep areas inside the outline**), drops stray specks, and applies the **Keep / Remove** scribbles and the **Cut strength** slider.
 
