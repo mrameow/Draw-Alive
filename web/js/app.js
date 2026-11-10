@@ -676,11 +676,7 @@
       $('snackbar').classList.remove('show');
     });
 
-    $('snapBtn').addEventListener('click', async () => {
-      const s = currentScene();
-      await DA.saveDataURL(DA.World.snapshot(), safeName('draw-alive-' + s.name) + '.png');
-      DA.toast('📸 Picture saved!');
-    });
+    $('snapBtn').addEventListener('click', savePicture);
     $('pauseBtn').addEventListener('click', togglePause);
     $('fullBtn').addEventListener('click', toggleFullscreen);
     $('helpBtn').addEventListener('click', () => DA.openModal('helpModal'));
@@ -1016,6 +1012,50 @@
     if (await DA.confirm('Leave kids mode?', 'All buttons and worlds will come back.', 'Yes', false, 'No')) setKids(false);
   }
 
+  /* ================= save picture (one world, or all worlds at once) ================= */
+  /** One picture of the all-worlds grid, exactly as it looks (every world is drawn live). */
+  function overviewSnapshot() {
+    const grid = $('ovGrid');
+    const g = grid.getBoundingClientRect();
+    const k = Math.min(2, window.devicePixelRatio || 1);
+    const out = DA.makeCanvas(grid.clientWidth * k, Math.max(grid.scrollHeight, grid.clientHeight) * k);
+    const x = out.getContext('2d');
+    x.fillStyle = '#f3f1ff';
+    x.fillRect(0, 0, out.width, out.height);
+    OV.tiles.forEach((t) => {
+      const r = t.el.getBoundingClientRect();
+      const left = (r.left - g.left) * k, top = (r.top - g.top + grid.scrollTop) * k;
+      x.save();
+      x.beginPath();
+      x.rect(left, top, r.width * k, r.height * k);
+      x.clip();
+      x.drawImage(t.canvas, left, top, r.width * k, r.height * k);
+      if (!document.body.classList.contains('focus')) {
+        // keep the world names in the picture when they are shown on screen
+        const fs = 13 * k;
+        x.font = `800 ${fs}px ui-rounded, "Segoe UI", system-ui, sans-serif`;
+        const label = (t.scene.remote ? '📡 ' + t.scene.remote.owner + ' · ' : '') + t.scene.name;
+        const w = x.measureText(label).width + fs * 1.2;
+        x.fillStyle = 'rgba(255,255,255,0.92)';
+        x.fillRect(left + 8 * k, top + r.height * k - 8 * k - fs * 1.7, w, fs * 1.7);
+        x.fillStyle = '#1f1d3a';
+        x.textBaseline = 'middle';
+        x.fillText(label, left + 8 * k + fs * 0.6, top + r.height * k - 8 * k - fs * 0.85);
+      }
+      x.restore();
+    });
+    return out.toDataURL('image/png');
+  }
+  async function savePicture() {
+    try {
+      if (overviewOpen()) await DA.saveDataURL(overviewSnapshot(), 'draw-alive-all-worlds.png');
+      else await DA.saveDataURL(DA.World.snapshot(), safeName('draw-alive-' + currentScene().name) + '.png');
+      DA.toast('📸 Picture saved!');
+    } catch (e) {
+      DA.toast('Sorry, the picture could not be saved');
+    }
+  }
+
   /* ================= "only worlds" view ================= */
   let focusTimer = null;
   function setFocus(on) {
@@ -1058,6 +1098,7 @@
     $('ovFocus').addEventListener('click', () => setFocus(true));
     $('focusExit').addEventListener('click', () => setFocus(false));
     $('focusAll').addEventListener('click', () => { openOverview(); pokeFocus(); });
+    $('focusSnap').addEventListener('click', () => { savePicture(); pokeFocus(); });
     ['pointermove', 'pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, pokeFocus, { passive: true }));
   }
 

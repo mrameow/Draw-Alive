@@ -66,14 +66,18 @@
     return { w: c.w * k, h: c.h * k };
   }
 
+  /** (Re)load a creature's picture – also after its drawing was changed (edit / sync). */
+  function ensureImage(c) {
+    if (c._img || !c.sprite) return;
+    const img = new Image();
+    img.onload = () => buildAlpha(c);
+    img.src = c.sprite;
+    c._img = img;
+  }
+
   function ensureRuntime(c) {
+    ensureImage(c);
     if (c._rt) return c._rt;
-    if (!c._img) {
-      const img = new Image();
-      img.src = c.sprite;
-      c._img = img;
-      img.onload = () => buildAlpha(c);
-    }
     c._rt = {
       tx: c.x, ty: c.y, vx: 0, vy: 0, next: 0, pause: 0, phase: Math.random() * TAU,
       faceRight: Math.random() > 0.5, spawn: c._new ? 0 : 1, hop: 0,

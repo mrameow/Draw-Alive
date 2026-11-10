@@ -102,9 +102,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const gId = await guest.evaluate((f) => { const { id, cv } = eval(f)(); const c = DA.App.currentScene().creatures.find((x) => x.id === id); DA.World.updateSprite(c, cv); return id; }, '(' + pic.toString() + ')');
     await host.waitForFunction((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 60), gId, { timeout: 8000 }).catch(() => {});
     check(await host.evaluate((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 60), gId), 'a creature edited on the guest is updated on the main screen');
+    await host.waitForTimeout(800);
+    check(await host.evaluate((id) => { const c = DA.App.currentScene().creatures.find((x) => x.id === id); return !!c && !!c._img && (c._img instanceof HTMLCanvasElement || (c._img.complete && c._img.naturalWidth === 60)); }, gId), '…and it is visible (its new picture is drawn) on the main screen');
     const hId = await host.evaluate(() => { const c = DA.App.currentScene().creatures[1]; const cv = DA.makeCanvas(70, 30); cv.getContext('2d').fillRect(0, 0, 70, 30); DA.World.updateSprite(c, cv); return c.id; });
     await guest.waitForFunction((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 70), hId, { timeout: 8000 }).catch(() => {});
     check(await guest.evaluate((id) => DA.App.currentScene().creatures.some((c) => c.id === id && c.w === 70), hId), 'a creature edited on the main screen is updated on the guest');
+    await guest.waitForTimeout(800);
+    check(await guest.evaluate((id) => { const c = DA.App.currentScene().creatures.find((x) => x.id === id); return !!c && !!c._img && (c._img instanceof HTMLCanvasElement || (c._img.complete && c._img.naturalWidth === 70)); }, hId), '…and it is visible (its new picture is drawn) on the guest');
 
     // no ping-pong: once in sync, nothing keeps bouncing between the devices
     const counter = () => { window.__r = 0; const f = DA.App.refresh; DA.App.refresh = function () { window.__r++; return f.apply(this, arguments); }; };

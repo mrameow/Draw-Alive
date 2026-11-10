@@ -608,3 +608,10 @@ body.native #fullBtn { display: none; }
 .wl-row.current { border-color: var(--primary); background: #f1eeff; }
 .wl-row.remote .nm::before { content: "📡 "; }
 .world-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+
+/* full-screen view buttons: icons only on phones so they fit */
+@media (max-width: 640px) {
+  .focus-bar { gap: 6px; right: 8px; }
+  .focus-exit { padding: 10px; }
+  .focus-exit span { display: none; }
+}

@@ -272,6 +272,11 @@ async function run(viewport, tag) {
   await page.click('#focusAll');
   await page.waitForTimeout(500);
   check(await page.isVisible('#overview') && !(await page.isVisible('.topbar')), 'it goes back to all worlds (still without buttons)');
+  await page.mouse.move(240, 230); await page.mouse.move(260, 240);
+  const dlAll = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+  await page.click('#focusSnap');
+  const allPic = await dlAll;
+  check(!!allPic && /all-worlds/.test(allPic.suggestedFilename()), 'full-screen "Save picture" saves all worlds in one picture');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   check(await page.isVisible('.topbar'), 'Esc brings the controls back');
