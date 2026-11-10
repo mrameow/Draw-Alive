@@ -385,11 +385,6 @@ kbd { background: #f1eeff; border-radius: 6px; padding: 1px 6px; font-size: 12px
 
 /* ---------- mode switches ---------- */
 .kids-btn { font-size: 20px; }
-body.kids .size-row { padding: 10px 14px; }
-body.kids #sizeRange { height: 34px; }
-body.kids .size-dot { width: 44px; height: 44px; }
-body.kids .custom-color { background: linear-gradient(90deg, #ffe3e3, #fff3bf, #d3f9d8, #d0ebff, #e5dbff); border-radius: 16px; padding: 10px 12px; color: var(--ink); font-size: 16px; font-weight: 900; }
-body.kids .custom-color input { width: 54px; height: 40px; }
 body.kids .adult-only { display: none !important; }
 body:not(.kids) .kid-only { display: none !important; }
 
@@ -401,12 +396,14 @@ body.focus .stage { border-radius: 0; box-shadow: none; }
 body.focus .overview { padding: 0; }
 body.focus .ov-grid { gap: 3px; scrollbar-gutter: auto; }
 body.focus .ov-tile { border: 0; border-radius: 0; box-shadow: none; }
+.focus-bar { position: fixed; top: calc(12px + var(--safe-top)); right: 12px; z-index: 60; display: none; gap: 8px; }
+body.focus .focus-bar { display: flex; }
+body.focus.in-overview #focusAll { display: none; }
 .focus-exit {
-  position: fixed; top: calc(12px + var(--safe-top)); right: 12px; z-index: 60; display: none; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 6px;
   border: none; border-radius: 999px; padding: 9px 14px 9px 11px; background: rgba(20,18,50,0.72); color: #fff; font-weight: 800; font-size: 13px;
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .3s; pointer-events: none;
 }
-body.focus .focus-exit { display: flex; }
 body.focus .focus-exit.show { opacity: 1; pointer-events: auto; }
 body.focus.idle, body.focus.idle canvas { cursor: none; }
 
@@ -434,19 +431,6 @@ body.kids #cpFlip::before { content: "↔️"; font-size: 26px; } body.kids #cpF
 body.kids #cpTrick::before { content: "🤸"; font-size: 26px; } body.kids #cpTrick::after { content: "Trick"; font-size: 12px; font-weight: 800; }
 body.kids #cpDelete::before { content: "🗑️"; font-size: 26px; } body.kids #cpDelete::after { content: "Bye!"; font-size: 12px; font-weight: 800; }
 /* drawing pad: fewer, bigger controls */
-body.kids .modal.full .sheet.pad { max-width: none; }
-body.kids .pad-body { grid-template-columns: 1fr 220px; }
-body.kids .pad-tools { gap: 14px; }
-body.kids .seg-btn { font-size: 28px; padding: 10px 4px; }
-.kid-sizes { display: flex; justify-content: space-around; background: #f8f7ff; border-radius: 16px; padding: 8px; }
-.kid-size { width: 56px; height: 56px; border-radius: 50%; border: 3px solid transparent; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); }
-.kid-size i { width: var(--s); height: var(--s); border-radius: 50%; background: var(--c, #1f1d3a); }
-.kid-size.active { border-color: var(--primary); }
-body.kids .palette { grid-template-columns: repeat(4, 1fr); gap: 10px; }
-body.kids .palette .swatch:nth-child(n+13) { display: none; }
-body.kids .pad-actions { grid-template-columns: 1fr; }
-body.kids .pad-actions .btn-big { font-size: 20px; padding: 16px; border-radius: 16px; }
-body.kids .pad-tip { display: none; }
 body.kids .sheet-head h3 { font-size: 20px; }
 body.kids .icon-btn { width: 46px; height: 46px; }
 .kid-hint { margin: 0; font-weight: 800; font-size: 15px; line-height: 1.5; }
@@ -455,8 +439,6 @@ body.kids .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr
 body.kids .chips .chip { font-size: 16px; padding: 8px 14px; }
 body.kids .sh-code-input { font-size: 32px; letter-spacing: 12px; text-align: center; }
 body.kids .shutter { width: 88px; height: 88px; }
-.gate-q { font-size: 30px; font-weight: 900; text-align: center; margin: 8px 0; }
-.gate-input { text-align: center; font-size: 26px; font-weight: 800; }
 .shake { animation: shake .35s; }
 @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
 
@@ -493,10 +475,6 @@ body.kids .shutter { width: 88px; height: 88px; }
   .sh-form { grid-template-columns: 1fr; }
   body.kids .dock-btn { min-width: 0; padding: 8px 2px; font-size: 12px; }
   body.kids .dock-btn .di { font-size: 26px; }
-  body.kids .pad-body { grid-template-columns: 1fr; }
-  body.kids .palette { grid-template-columns: repeat(6, 1fr); gap: 6px; }
-  body.kids .seg-btn { font-size: 22px; padding: 6px 4px; }
-  .kid-size { width: 46px; height: 46px; }
   .kid-world { font-size: 16px; }
   body.kids .brand-name { display: none; }
   body.kids .cp-actions .chip { min-width: 0; flex: 1; padding: 6px 4px; }
@@ -577,29 +555,26 @@ body.native #fullBtn { display: none; }
   .pad-body { grid-template-rows: 1fr auto; gap: 8px; }
   .pad-area { border-radius: 12px; }
   .pad-tip { display: none; }
-  .pad-tools, body.kids .pad-tools {
+  .pad-tools {
     max-height: none; overflow: visible; display: grid; gap: 8px; padding: 0;
     grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "seg size" "pal color" "more more" "act act";
   }
   .pad-tools > .seg { grid-area: seg; padding: 3px; }
   .pad-tools .seg-btn span { display: none; }
-  .pad-tools .seg-btn, body.kids .seg-btn { font-size: 22px; padding: 7px 2px; }
+  .pad-tools .seg-btn { font-size: 22px; padding: 7px 2px; }
   .pad-tools > .size-row { grid-area: size; width: 132px; padding: 4px 8px; gap: 4px; }
   .pad-tools .size-dot { width: 30px; height: 30px; }
-  .pad-tools > .palette, body.kids .pad-tools > .palette {
+  .pad-tools > .palette {
     grid-area: pal; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 3px;
   }
   .pad-tools > .palette::-webkit-scrollbar { display: none; }
   .pad-tools > .palette .swatch { flex: 0 0 36px; height: 36px; }
-  body.kids .pad-tools > .palette .swatch { flex-basis: 42px; height: 42px; }
-  body.kids .palette .swatch:nth-child(n+13) { display: block; }
-  .pad-tools > .custom-color, body.kids .pad-tools > .custom-color { grid-area: color; padding: 0; background: none; gap: 0; }
+  .pad-tools > .custom-color { grid-area: color; padding: 0; background: none; gap: 0; }
   .pad-tools > .custom-color span { display: none; }
   .pad-tools > .custom-color input { width: 42px; height: 42px; border-radius: 50%; overflow: hidden; }
   .pad-tools > .more-opts { grid-area: more; }
   .pad-tools > .pad-actions { grid-area: act; grid-template-columns: auto 1fr; position: static; padding: 0; }
-  body.kids .pad-tools > .pad-actions { grid-template-columns: auto 1fr; }
-  .pad-tools .btn-big, body.kids .pad-actions .btn-big { padding: 13px; font-size: 16px; }
+  .pad-tools .btn-big { padding: 13px; font-size: 16px; }
 
   /* photo editor uses the same compact layout */
   #photoModal .pad-tools { grid-template-areas: "seg seg" "hint hint" "str str" "more more" "act act"; }

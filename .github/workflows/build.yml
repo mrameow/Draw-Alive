@@ -38,6 +38,13 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: ''
       - run: npm test
+      - name: Desktop app check (real Electron, loaded from file:// like the .exe)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: ''
+        run: |
+          node node_modules/electron/install.js
+          sudo apt-get install -y -qq xvfb > /dev/null || true
+          xvfb-run -a npx electron --no-sandbox tests/electron-smoke.js
 
   pages:
     needs: test

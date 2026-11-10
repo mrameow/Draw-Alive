@@ -331,7 +331,6 @@
     });
     function selectColor(col, btn) {
       DA.Pad.setColor(col);
-      document.querySelectorAll('.kid-size i').forEach((i) => i.style.setProperty('--c', col));
       pal.querySelectorAll('.swatch').forEach((s) => s.classList.toggle('active', s === btn));
       $('customColor').value = col.length === 7 ? col : '#000000';
       if (DA.Pad.state.tool === 'eraser') setTool('brush');
@@ -356,15 +355,6 @@
       d.style.setProperty('--c', DA.Pad.state.tool === 'eraser' ? '#ffffff' : DA.Pad.state.color);
     }
     $('sizeRange').addEventListener('input', (e) => { DA.Pad.setSize(+e.target.value); updateSizeDot(); });
-    document.querySelectorAll('[data-ksize]').forEach((b) => b.addEventListener('click', () => {
-      DA.Pad.setSize(+b.dataset.ksize);
-      $('sizeRange').value = b.dataset.ksize;
-      document.querySelectorAll('[data-ksize]').forEach((x) => x.classList.toggle('active', x === b));
-      if (DA.Pad.state.tool === 'fill') setTool('brush');
-      DA.Sound.play('pop');
-      updateSizeDot();
-    }));
-    document.querySelectorAll('.kid-size i').forEach((i) => i.style.setProperty('--c', DA.Pad.state.color));
     updateSizeDot();
 
     $('stayInside').addEventListener('change', (e) => DA.Pad.setStayInside(e.target.checked));
@@ -465,6 +455,7 @@
         hints.width = PH.work.width; hints.height = PH.work.height;
         hctx.clearRect(0, 0, hints.width, hints.height);
         PH.undo = [];
+        PH.ai = null; PH.aiPromise = null; PH.token = (PH.token || 0) + 1;
         PH.name = String(name || 'Photo').replace(/\.[^.]+$/, '').replace(/^image$/i, 'Photo').slice(0, 20) || 'Photo';
         $('phStrength').value = 50; $('phOff').checked = false; $('phShowOrig').checked = false; $('phFillHoles').checked = true;
         DA.openModal('photoModal');
@@ -484,13 +475,22 @@
     window.addEventListener('resize', fitPhoto);
 
     let busyTimer = null;
+    /** The AI guess is computed once per photo and reused when the user touches it up. */
+    function aiMaskFor(w, h) {
+      if (!$('phAI').checked || !DA.AI) return Promise.resolve(null);
+      if (!PH.aiPromise) PH.aiPromise = DA.AI.mask(PH.work, w, h).then((m) => (PH.ai = m));
+      return PH.aiPromise;
+    }
     function recompute() {
       if (!PH.work) return;
       $('phBusy').classList.add('show');
       clearTimeout(busyTimer);
-      busyTimer = setTimeout(() => {
+      const token = PH.token;
+      busyTimer = setTimeout(async () => {
         try {
           const w = PH.work.width, h = PH.work.height;
+          const ai = $('phOff').checked ? null : await aiMaskFor(w, h);
+          if (token !== PH.token || !PH.work) return; // a newer photo was opened meanwhile
           if ($('phOff').checked) {
             PH.mask = new Float32Array(w * h).fill(1);
           } else {
@@ -498,7 +498,8 @@
             const hint = new Uint8Array(w * h);
             for (let i = 0; i < w * h; i++) if (hd[i * 4 + 3] > 40) hint[i] = hd[i * 4 + 1] > hd[i * 4] ? 1 : 2;
             PH.mask = DA.BgRemove.computeMask(PH.wctx.getImageData(0, 0, w, h), {
-              strength: +$('phStrength').value, hints: hint, fillHoles: $('phFillHoles').checked
+              strength: +$('phStrength').value, hints: hint, fillHoles: $('phFillHoles').checked,
+              aiMask: ai, aiWeight: DA.AI ? DA.AI.weight : 0.45
             });
           }
           PH.result = DA.BgRemove.applyMask(PH.full, PH.mask, w, h);
@@ -517,7 +518,7 @@
       else vctx.drawImage(PH.result, 0, 0);
     }
 
-    ['phStrength', 'phFillHoles', 'phOff'].forEach((id) => $(id).addEventListener('change', recompute));
+    ['phStrength', 'phFillHoles', 'phOff', 'phAI'].forEach((id) => $(id).addEventListener('change', recompute));
     $('phShowOrig').addEventListener('change', drawView);
     $('phReset').addEventListener('click', () => {
       PH.undo.push(hctx.getImageData(0, 0, hints.width, hints.height));
@@ -575,7 +576,7 @@
   function setupUI() {
     document.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => {
       const what = b.dataset.open;
-      if (what === 'draw') DA.openModal('drawModal');
+      if (what === 'draw') { if (DA.Pad.hasTemplate()) DA.Pad.reset(); DA.openModal('drawModal'); }
       else if (what === 'templates') DA.openModal('templatesModal');
       else if (what === 'photo') DA.openModal('photoChooser');
     }));
@@ -693,6 +694,7 @@
 
   /* ================= photo sources: chooser, paste, camera ================= */
   function setupPhotoSources() {
+    $('photoChooser').addEventListener('modal-open', () => DA.AI && DA.AI.warmUp());
     $('pcFile').addEventListener('click', () => $('photoInput').click());
     $('pcCamera').addEventListener('click', openCamera);
     $('pcPaste').addEventListener('click', pasteFromClipboard);
@@ -849,12 +851,14 @@
     grid.appendChild(add);
     $('ovCount').textContent = `· ${state.scenes.length} world${state.scenes.length === 1 ? '' : 's'}, ${state.scenes.reduce((a, s) => a + s.creatures.length, 0)} creatures`;
     $('overview').classList.add('open');
+    document.body.classList.add('in-overview');
     $('emptyState').classList.remove('show');
     requestAnimationFrame(() => { OV.tiles.forEach(sizeTile); DA.World.setOverview(OV.tiles); });
   }
   function closeOverview() {
     if (!$('overview').classList.contains('open')) return;
     $('overview').classList.remove('open');
+    document.body.classList.remove('in-overview');
     if (OV.ro) OV.ro.disconnect();
     OV.tiles = [];
     DA.World.setOverview(null);
@@ -878,20 +882,15 @@
       closeOverview();
       setFocus(false);
       $('sceneMenu').classList.remove('open');
-      let s = state.scenes.find((x) => x.id === state.kidsScene && !x.remote);
-      if (!s) {
-        s = newScene('meadow', { name: 'My World' });
-        state.scenes.push(s);
-        state.kidsScene = s.id;
-      }
+      // Use the world that is on screen right now (after a restart: the one kids mode was using).
+      let s = quiet ? state.scenes.find((x) => x.id === state.kidsScene && !x.remote) : null;
+      if (!s) s = currentScene() && !currentScene().remote ? currentScene() : state.scenes.find((x) => !x.remote);
+      if (!s) { s = newScene('meadow', { name: 'My World' }); state.scenes.push(s); }
+      state.kidsScene = s.id;
       document.body.classList.add('kids');
       state.settings.kids = true;
       DA.Sound.setEnabled(state.settings.sound !== false);
       syncSoundIcon();
-      // friendly defaults for small hands
-      DA.Pad.setSize(18); $('sizeRange').value = 18;
-      DA.Pad.setStayInside(true); $('stayInside').checked = true;
-      DA.Pad.setSolidInside(true); $('solidInside').checked = true;
       switchScene(s.id);
       if (!quiet) { DA.Sound.play('yay'); DA.toast('🧒 Kids mode is on!'); }
     } else {
@@ -912,7 +911,7 @@
     s.seed = Math.floor(Math.random() * 1e9);
     s._decor = null;
     if (type === 'custom') { s.bgImage = bgImage; s._bgImg = null; s.motion = 'walk'; }
-    s.name = type === 'custom' ? 'My Photo World' : 'My ' + DA.ENVIRONMENTS[type].name;
+    s.name = type === 'custom' ? 'My Photo' : DA.ENVIRONMENTS[type].name;
     s.creatures.forEach((c) => { if (c._rt) c._rt.next = 0; });
     DA.Env.prepare(s);
     DA.Sound.play('magic');
@@ -933,27 +932,9 @@
     $('kidSound').setAttribute('aria-pressed', on);
   }
 
-  /* grown-ups gate: a sum small children can't do yet */
-  let gateAnswer = 0;
-  function openGate() {
-    const a = 6 + Math.floor(Math.random() * 4), b = 6 + Math.floor(Math.random() * 4);
-    gateAnswer = a * b;
-    $('gateQ').textContent = `${a} × ${b} = ?`;
-    $('gateInput').value = '';
-    $('gateMsg').textContent = '';
-    DA.openModal('gateModal');
-    setTimeout(() => $('gateInput').focus(), 60);
-  }
-  function checkGate() {
-    if (+$('gateInput').value === gateAnswer) { DA.closeModal('gateModal'); setKids(false); return; }
-    const sheet = $('gateModal').querySelector('.sheet');
-    sheet.classList.remove('shake'); void sheet.offsetWidth; sheet.classList.add('shake');
-    $('gateMsg').textContent = 'Not quite – try this one.';
-    const a = 6 + Math.floor(Math.random() * 4), b = 6 + Math.floor(Math.random() * 4);
-    gateAnswer = a * b;
-    $('gateQ').textContent = `${a} × ${b} = ?`;
-    $('gateInput').value = '';
-    $('gateInput').focus();
+  /* leaving kids mode: a simple yes / no */
+  async function askLeaveKids() {
+    if (await DA.confirm('Leave kids mode?', 'All buttons and worlds will come back.', 'Yes', false, 'No')) setKids(false);
   }
 
   /* ================= "only worlds" view ================= */
@@ -964,22 +945,20 @@
     DA.World.select(null);
     $('sceneMenu').classList.remove('open');
     if (on) { pokeFocus(); DA.toast('Move the mouse or tap the screen to show the buttons again', 2600); }
-    else { clearTimeout(focusTimer); $('focusExit').classList.remove('show'); document.body.classList.remove('idle'); }
+    else { clearTimeout(focusTimer); document.querySelectorAll('.focus-exit').forEach((b) => b.classList.remove('show')); document.body.classList.remove('idle'); }
   }
   function pokeFocus() {
     if (!document.body.classList.contains('focus')) return;
-    $('focusExit').classList.add('show');
+    document.body.classList.toggle('in-overview', overviewOpen());
+    document.querySelectorAll('.focus-exit').forEach((b) => b.classList.add('show'));
     document.body.classList.remove('idle');
     clearTimeout(focusTimer);
-    focusTimer = setTimeout(() => { $('focusExit').classList.remove('show'); document.body.classList.add('idle'); }, 2500);
+    focusTimer = setTimeout(() => { document.querySelectorAll('.focus-exit').forEach((b) => b.classList.remove('show')); document.body.classList.add('idle'); }, 2500);
   }
 
   function setupModes() {
     // kids
-    $('kidExit').addEventListener('click', openGate);
-    $('gateOk').addEventListener('click', checkGate);
-    $('gateCancel').addEventListener('click', () => DA.closeModal('gateModal'));
-    $('gateInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') checkGate(); });
+    $('kidExit').addEventListener('click', askLeaveKids);
     $('kidSound').addEventListener('click', () => {
       state.settings.sound = state.settings.sound === false;
       DA.Sound.setEnabled(state.settings.sound);
@@ -999,6 +978,7 @@
     $('focusBtn').addEventListener('click', () => setFocus(true));
     $('ovFocus').addEventListener('click', () => setFocus(true));
     $('focusExit').addEventListener('click', () => setFocus(false));
+    $('focusAll').addEventListener('click', () => { openOverview(); pokeFocus(); });
     ['pointermove', 'pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, pokeFocus, { passive: true }));
   }
 
@@ -1050,7 +1030,7 @@
         if (overviewOpen()) { closeOverview(); return; }
         if (DA.World.selected) { DA.World.select(null); return; }
         if (document.body.classList.contains('focus')) { setFocus(false); return; }
-        if (isKids()) { DA.toast('🔒 Ask a grown-up to leave kids mode'); return; }
+        if (isKids()) { askLeaveKids(); return; }
         DA.storage.set('state', serialise()).finally(() => AppPlugin.exitApp());
       });
       AppPlugin.addListener('pause', () => DA.storage.set('state', serialise()));

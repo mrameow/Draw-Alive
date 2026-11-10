@@ -136,9 +136,14 @@
       <button class="dock-btn adult-only" id="fullBtn"><span class="di">⛶</span><span>Full screen</span></button>
       <button class="dock-btn adult-only" id="helpBtn"><span class="di">❓</span><span>Help</span></button>
     </footer>
-    <button class="focus-exit" id="focusExit" title="Show the buttons again" aria-label="Show the buttons again">
-      <svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg><span>Show buttons</span>
-    </button>
+    <div class="focus-bar" id="focusBar">
+      <button class="focus-exit" id="focusAll" title="Back to all worlds" aria-label="Back to all worlds">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>All worlds</span>
+      </button>
+      <button class="focus-exit" id="focusExit" title="Show the buttons again" aria-label="Show the buttons again">
+        <svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg><span>Show buttons</span>
+      </button>
+    </div>
   </div>
 
   <input type="file" id="photoInput" accept="image/*" hidden>
@@ -151,9 +156,9 @@
       <div class="sheet-head">
         <h3 id="drawTitle">🎨 Draw a creature</h3>
         <div class="head-actions">
-          <button class="btn btn-ghost adult-only" id="padTemplatesBtn">🖍️ Outlines</button>
+          <button class="btn btn-ghost" id="padTemplatesBtn">🖍️ Outlines</button>
           <button class="icon-btn" id="padUndo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
-          <button class="icon-btn adult-only" id="padRedo" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg></button>
+          <button class="icon-btn" id="padRedo" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg></button>
           <button class="icon-btn modal-close" data-close="drawModal" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
       </div>
@@ -171,11 +176,6 @@
             <button class="seg-btn" data-tool="fill" role="radio" aria-checked="false">🪣<span>Fill</span></button>
             <button class="seg-btn" data-tool="eraser" role="radio" aria-checked="false">🧽<span>Eraser</span></button>
           </div>
-          <div class="kid-sizes" hidden role="radiogroup" aria-label="Brush size">
-            <button class="kid-size" data-ksize="8" aria-label="Thin"><i style="--s:10px"></i></button>
-            <button class="kid-size active" data-ksize="18" aria-label="Medium"><i style="--s:20px"></i></button>
-            <button class="kid-size" data-ksize="36" aria-label="Thick"><i style="--s:34px"></i></button>
-          </div>
           <div class="tool-row size-row">
             <span class="size-dot" id="sizeDot"></span>
             <input type="range" id="sizeRange" min="2" max="60" value="14" aria-label="Brush size">
@@ -184,7 +184,7 @@
           <label class="custom-color">
             <input type="color" id="customColor" value="#ff6b6b"> <span>🌈 Any colour…</span>
           </label>
-          <details class="more-opts adult-only" id="padMore"><summary>More options</summary>
+          <details class="more-opts" id="padMore"><summary>More options</summary>
           <label class="switch" id="stayInsideRow"><input type="checkbox" id="stayInside" checked><span class="track"></span> Stay inside the lines</label>
           <label class="switch" id="solidInsideRow"><input type="checkbox" id="solidInside" checked><span class="track"></span> Fill inside my outline with white</label>
           </details>
@@ -226,7 +226,7 @@
             <canvas id="phView"></canvas>
             <canvas id="phHints"></canvas>
           </div>
-          <div class="busy" id="phBusy"><div class="spinner"></div>Finding your creature…</div>
+          <div class="busy" id="phBusy"><div class="spinner"></div>✨ Finding your creature…</div>
         </div>
         <aside class="pad-tools">
           <div class="tool-row seg" role="radiogroup" aria-label="Touch-up brush">
@@ -239,6 +239,7 @@
             <input type="range" id="phStrength" min="0" max="100" value="50">
           </label>
           <details class="more-opts adult-only" id="phMore"><summary>More options</summary>
+          <label class="switch"><input type="checkbox" id="phAI" checked><span class="track"></span> ✨ Smart AI cut-out</label>
           <label class="switch"><input type="checkbox" id="phFillHoles" checked><span class="track"></span> Keep areas inside the outline</label>
           <label class="switch"><input type="checkbox" id="phOff"><span class="track"></span> Keep the whole photo (no cut-out)</label>
           <label class="switch"><input type="checkbox" id="phShowOrig"><span class="track"></span> Show original</label>
@@ -428,21 +429,6 @@
     </div>
   </div>
 
-  <!-- ===== Grown-ups gate (leaving kids mode) ===== -->
-  <div class="modal" id="gateModal" aria-hidden="true" role="dialog" aria-labelledby="gateTitle">
-    <div class="sheet small">
-      <h3 id="gateTitle">🔒 Grown-ups only</h3>
-      <p class="muted">To leave kids mode, answer this question:</p>
-      <p class="gate-q" id="gateQ"></p>
-      <input class="text-input gate-input" id="gateInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" aria-label="Answer">
-      <p class="sh-status warn" id="gateMsg"></p>
-      <div class="row-end">
-        <button class="btn btn-ghost" id="gateCancel">Cancel</button>
-        <button class="btn btn-primary" id="gateOk">Unlock</button>
-      </div>
-    </div>
-  </div>
-
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="snackbar" id="snackbar"><span id="snackText"></span><button id="snackBtn">Undo</button></div>
 
@@ -450,6 +436,7 @@
   <script src="js/environments.js"></script>
   <script src="js/templates.js"></script>
   <script src="js/bgremove.js"></script>
+  <script src="js/ai.js"></script>
   <script src="js/drawpad.js"></script>
   <script src="js/world.js"></script>
   <script src="js/sound.js"></script>

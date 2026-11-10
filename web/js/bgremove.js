@@ -156,7 +156,7 @@
   /**
    * Compute a foreground mask.
    * @param {ImageData} img working-size image (≈ 300px)
-   * @param {{strength?:number, hints?:Uint8Array, fillHoles?:boolean}} opts strength 0..100; hints: 1 keep, 2 remove
+   * @param {{strength?:number, hints?:Uint8Array, fillHoles?:boolean, aiMask?:Float32Array}} opts strength 0..100; hints: 1 keep, 2 remove
    * @returns {Float32Array} alpha 0..1 per pixel
    */
   function computeMask(img, opts) {
@@ -231,8 +231,19 @@
     }
 
     // 3. colour models
-    const fgIdx = [], bgIdx = [];
+    // With an AI mask (rembg U²-Net run on the device) the colour models learn from
+    // what the AI thinks is creature vs background, not just from the flood fill.
+    const ai = opts.aiMask && opts.aiMask.length === n ? opts.aiMask : null;
+    let fgIdx = [], bgIdx = [];
     for (let p = 0; p < n; p++) (bg[p] ? bgIdx : fgIdx).push(p);
+    if (ai) {
+      const f2 = [], b2 = [];
+      for (let p = 0; p < n; p++) {
+        if (hints[p] === 1 || (!bg[p] && ai[p] > 0.35)) f2.push(p);
+        else if (hints[p] === 2 || bg[p] || ai[p] < 0.12) b2.push(p);
+      }
+      if (f2.length > n * 0.01) { fgIdx = f2; bgIdx = b2; }
+    }
     if (fgIdx.length < n * 0.002) return new Float32Array(n); // nothing left
     const fgModels = kmeans(sample(lab, fgIdx, 3000), 6, 8);
     const bgModels2 = bgIdx.length ? kmeans(sample(lab, bgIdx, 3000), 6, 8) : bgModels;
@@ -241,7 +252,8 @@
     for (let p = 0; p < n; p++) {
       const df = nearest(lab, p, fgModels), db = nearest(lab, p, bgModels2);
       const pd = 1 / (1 + Math.exp(-(db - df) / 5));
-      const pr = bg[p] ? 0.12 : 0.88;
+      let pr = bg[p] ? 0.12 : 0.88;
+      if (ai) { const w = opts.aiWeight == null ? 0.65 : opts.aiWeight; pr = DA.clamp((1 - w) * pr + w * ai[p], 0.03, 0.97); }
       prior[p] = (pd * pr) / (pd * pr + (1 - pd) * (1 - pr) + 1e-6);
       prob[p] = prior[p];
     }

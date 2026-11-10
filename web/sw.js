@@ -1,8 +1,8 @@
 /* Draw Alive service worker – makes the web app work offline. */
-const CACHE = 'draw-alive-v4';
+const CACHE = 'draw-alive-v5';
 const ASSETS = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
-  'js/util.js', 'js/environments.js', 'js/templates.js', 'js/bgremove.js', 'js/drawpad.js', 'js/world.js', 'js/sound.js', 'js/share.js', 'js/app.js',
+  'js/util.js', 'js/environments.js', 'js/templates.js', 'js/bgremove.js', 'js/ai.js', 'js/drawpad.js', 'js/world.js', 'js/sound.js', 'js/share.js', 'js/app.js',
   'vendor/peerjs.min.js', 'vendor/qrcode.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'
 ];

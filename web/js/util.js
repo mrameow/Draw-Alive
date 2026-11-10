@@ -123,8 +123,9 @@
   DA.isModalOpen = () => openStack.length > 0;
 
   /** Promise based confirm dialog with app styling. */
-  DA.confirm = function (title, message, okText, danger) {
+  DA.confirm = function (title, message, okText, danger, cancelText) {
     return new Promise((resolve) => {
+      document.getElementById('confirmCancel').textContent = cancelText || 'Cancel';
       document.getElementById('confirmTitle').textContent = title;
       document.getElementById('confirmMessage').textContent = message || '';
       const ok = document.getElementById('confirmOk');
